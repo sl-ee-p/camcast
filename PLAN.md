@@ -22,7 +22,7 @@ screens exercised, version bump, docs, commit + push). Debug APK on the emulator
 the Redmi needs a manual tap in File Manager to install (MIUI blocks adb installs without a SIM).
 
 - **C1 Skeleton (DONE 0.1.0):** Gradle project, package, theme, EN/IT strings, empty settings screen, CI-less local build, git + private repo.
-- **C2 Camera to JPEG:** CameraX ImageAnalysis -> JPEG frames at the chosen resolution/fps/quality. Unit test the frame
+- **C2 Camera to JPEG (DONE 0.2.0):** CameraX ImageAnalysis -> JPEG frames at the chosen resolution/fps/quality. Unit test the frame
   throttling/encoding glue.
 - **C3 HTTP server:** `ServerSocket` server with `/video`, `/snapshot.jpg`, `/`; basic auth; several clients; clean shutdown.
   Unit tests for request parsing, auth and the MJPEG framing.
@@ -41,3 +41,9 @@ the Redmi needs a manual tap in File Manager to install (MIUI blocks adb install
 ## Open questions
 - Where will the phone sit (Wi-Fi strength, power)? Needed only for C6.
 - Back or front camera as the default?
+
+## Notes from C2
+- `StreamConfig` (camera, resolution, fps cap, JPEG quality) has defaults (back, 720p, 10 fps, q70); C4 persists it.
+- The activity runs the camera and stops it in `onStop`; C4 replaces that with a foreground service.
+- Emulator virtual camera delivers a pixel-art scene at 720x1280 (rotated upright) and ~10 fps at the cap.
+- Not yet tried: front camera, 480p/1080p presets, a real device camera (the Redmi).

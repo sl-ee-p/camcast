@@ -7,12 +7,16 @@ package com.slp.camcast.camera
  */
 class FrameThrottle(fpsCap: Int) {
     private val intervalNanos = 1_000_000_000L / fpsCap.coerceAtLeast(1)
+
+    // Camera timestamps jitter: a 30 fps stream stamps frames 99.99 ms apart, not 100. Without some slack a
+    // 10 fps cap would skip that third frame and deliver 7.5 fps.
+    private val minGapNanos = intervalNanos * 9 / 10
     private var lastAccepted = Long.MIN_VALUE
 
     fun accept(timestampNanos: Long): Boolean {
         // The first frame, or a clock that went backwards, always passes.
         if (lastAccepted == Long.MIN_VALUE || timestampNanos < lastAccepted ||
-            timestampNanos - lastAccepted >= intervalNanos
+            timestampNanos - lastAccepted >= minGapNanos
         ) {
             lastAccepted = timestampNanos
             return true

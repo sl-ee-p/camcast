@@ -5,4 +5,10 @@
     <string name="settings_placeholder">Settings arrive in the next milestones.</string>
     <string name="status_stopped">Stopped</string>
     <string name="action_start">Start</string>
+    <string name="status_streaming">Camera running</string>
+    <string name="action_stop">Stop</string>
+    <string name="stats_format">Frame %1$d · %2$.1f\u00A0fps · %3$d\u00A0KB · %4$d×%5$d</string>
+    <string name="preview_description">Latest camera frame</string>
+    <string name="permission_denied">Camera permission is needed to stream.</string>
+    <string name="camera_error">Camera error: %1$s</string>
 </resources>

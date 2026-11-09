@@ -11,8 +11,8 @@ android {
         // 26: adaptive icons, notification channels. The Redmi runs Android 11 (API 30).
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     buildTypes {
@@ -38,6 +38,9 @@ kotlin {
 dependencies {
     implementation("androidx.appcompat:appcompat:1.8.0")
     implementation("androidx.activity:activity-ktx:1.13.0")
+    implementation("androidx.camera:camera-core:1.6.2")
+    implementation("androidx.camera:camera-camera2:1.6.2")
+    implementation("androidx.camera:camera-lifecycle:1.6.2")
     implementation("com.google.android.material:material:1.14.0")
 
     testImplementation("junit:junit:4.13.2")

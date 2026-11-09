@@ -16,4 +16,7 @@ copy the APK over and tap it in File Manager.
 
 ## Status
 
-C1 skeleton done (0.1.0): empty settings screen, EN + IT strings, edge-to-edge insets, adaptive icon.
+- C1 skeleton (0.1.0): settings screen shell, EN + IT strings, edge-to-edge insets, adaptive icon.
+- C2 camera to JPEG (0.2.0): CameraX `ImageAnalysis` -> upright JPEG frames (`camera/`), capped by `FrameThrottle`
+  (10% jitter tolerance), published into a `FrameBuffer` that C3's HTTP clients will wait on. The Start button runs
+  the camera inside the activity and shows frame number, fps, size and a preview; C4 moves this into a foreground service.

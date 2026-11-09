@@ -27,6 +27,23 @@
             android:text="@string/status_stopped" />
 
         <TextView
+            android:id="@+id/stats"
+            style="@style/TextAppearance.Material3.BodyMedium"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/preview"
+            android:layout_width="match_parent"
+            android:layout_height="240dp"
+            android:layout_marginTop="16dp"
+            android:contentDescription="@string/preview_description"
+            android:scaleType="fitCenter"
+            android:visibility="gone" />
+
+        <TextView
             android:id="@+id/placeholder"
             style="@style/TextAppearance.Material3.BodyMedium"
             android:layout_width="match_parent"
@@ -39,7 +56,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:enabled="false"
             android:text="@string/action_start" />
     </LinearLayout>
 </ScrollView>

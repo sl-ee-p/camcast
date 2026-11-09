@@ -18,7 +18,7 @@ class FrameThrottleTest {
         val t = FrameThrottle(10) // 100 ms between frames
         assertTrue(t.accept(0))
         assertFalse(t.accept(33 * ms))
-        assertFalse(t.accept(99 * ms))
+        assertFalse(t.accept(80 * ms))
         assertTrue(t.accept(100 * ms))
         assertFalse(t.accept(150 * ms))
     }
@@ -28,6 +28,13 @@ class FrameThrottleTest {
         val t = FrameThrottle(10)
         val accepted = (0 until 300).count { t.accept(it * 33_333_333L) }
         assertEquals(100, accepted)
+    }
+
+    @Test
+    fun jitterJustUnderTheIntervalStillPasses() {
+        val t = FrameThrottle(10)
+        assertTrue(t.accept(0))
+        assertTrue(t.accept(99_990_000L))
     }
 
     @Test
@@ -48,7 +55,7 @@ class FrameThrottleTest {
     fun zeroCapIsTreatedAsOneFps() {
         val t = FrameThrottle(0)
         assertTrue(t.accept(0))
-        assertFalse(t.accept(900 * ms))
+        assertFalse(t.accept(800 * ms))
         assertTrue(t.accept(1_000 * ms))
     }
 }

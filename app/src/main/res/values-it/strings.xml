@@ -5,4 +5,10 @@
     <string name="settings_placeholder">Le impostazioni arriveranno nei prossimi passaggi.</string>
     <string name="status_stopped">Fermo</string>
     <string name="action_start">Avvia</string>
+    <string name="status_streaming">Fotocamera attiva</string>
+    <string name="action_stop">Ferma</string>
+    <string name="stats_format">Fotogramma %1$d · %2$.1f\u00A0fps · %3$d\u00A0KB · %4$d×%5$d</string>
+    <string name="preview_description">Ultimo fotogramma della fotocamera</string>
+    <string name="permission_denied">Serve il permesso della fotocamera per trasmettere.</string>
+    <string name="camera_error">Errore della fotocamera: %1$s</string>
 </resources>
