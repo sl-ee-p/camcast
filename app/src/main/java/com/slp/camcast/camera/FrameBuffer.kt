@@ -19,6 +19,8 @@ class FrameBuffer {
     private var sequence = 0L
     private var closed = false
 
+    val isClosed: Boolean get() = synchronized(lock) { closed }
+
     /** Publishes a frame and wakes the waiting readers. Returns the frame as stored. */
     fun publish(jpeg: ByteArray, width: Int, height: Int, timestampMillis: Long): JpegFrame {
         synchronized(lock) {
