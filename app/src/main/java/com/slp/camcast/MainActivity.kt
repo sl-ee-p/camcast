@@ -20,20 +20,28 @@ import com.google.android.material.button.MaterialButton
 import com.slp.camcast.camera.CameraSession
 import com.slp.camcast.camera.FrameBuffer
 import com.slp.camcast.camera.StreamConfig
+import com.slp.camcast.server.CamServer
+import com.slp.camcast.server.Credentials
+import java.net.Inet4Address
+import java.net.NetworkInterface
+import java.security.SecureRandom
 
 /**
- * C2 test harness: runs the camera in the activity and shows what the JPEG pipeline produces.
- * C4 moves the camera into a foreground service and this screen becomes the settings screen.
+ * C2/C3 test harness: runs the camera and the HTTP server in the activity and shows what they produce.
+ * C4 moves both into a foreground service with persisted settings; until then the user name is fixed and
+ * the password is random per run, shown on screen.
  */
 class MainActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private var frames: FrameBuffer? = null
     private var session: CameraSession? = null
+    private var server: CamServer? = null
     private var lastSequence = 0L
     private var lastTickMillis = 0L
 
     private lateinit var status: TextView
     private lateinit var stats: TextView
+    private lateinit var endpoint: TextView
     private lateinit var preview: ImageView
     private lateinit var startStop: MaterialButton
 
@@ -60,6 +68,7 @@ class MainActivity : AppCompatActivity() {
         }
         status = findViewById(R.id.status)
         stats = findViewById(R.id.stats)
+        endpoint = findViewById(R.id.endpoint)
         preview = findViewById(R.id.preview)
         startStop = findViewById(R.id.startStop)
         startStop.setOnClickListener { if (session == null) requestStart() else stopStreaming() }
@@ -82,6 +91,18 @@ class MainActivity : AppCompatActivity() {
         frames = buffer
         lastSequence = 0
         lastTickMillis = System.currentTimeMillis()
+        val credentials = Credentials(USERNAME, randomPassword())
+        val camServer = CamServer(PORT, buffer, credentials)
+        val boundPort = try {
+            camServer.start()
+        } catch (e: Exception) {
+            frames = null
+            Toast.makeText(this, getString(R.string.server_error, e.message ?: e.javaClass.simpleName), Toast.LENGTH_LONG).show()
+            return
+        }
+        server = camServer
+        endpoint.text = getString(R.string.endpoint_format, localAddress(), boundPort, credentials.username, credentials.password)
+        endpoint.visibility = View.VISIBLE
         session = CameraSession(applicationContext, buffer, StreamConfig()) { error ->
             runOnUiThread {
                 Toast.makeText(this, getString(R.string.camera_error, error.message ?: error.javaClass.simpleName), Toast.LENGTH_LONG).show()
@@ -99,6 +120,9 @@ class MainActivity : AppCompatActivity() {
         handler.removeCallbacks(refresh)
         session?.stop()
         session = null
+        server?.stop()
+        server = null
+        endpoint.visibility = View.GONE
         frames?.close()
         frames = null
         status.setText(R.string.status_stopped)
@@ -119,7 +143,23 @@ class MainActivity : AppCompatActivity() {
         preview.setImageBitmap(BitmapFactory.decodeByteArray(frame.jpeg, 0, frame.jpeg.size, options))
     }
 
+    private fun randomPassword(): String {
+        val alphabet = "abcdefghjkmnpqrstuvwxyz23456789" // no look-alike characters
+        val random = SecureRandom()
+        return (1..8).map { alphabet[random.nextInt(alphabet.length)] }.joinToString("")
+    }
+
+    /** The phone's LAN address, for the URL on screen. */
+    private fun localAddress(): String =
+        NetworkInterface.getNetworkInterfaces().toList()
+            .filter { it.isUp && !it.isLoopback }
+            .flatMap { it.inetAddresses.toList() }
+            .firstOrNull { it is Inet4Address && it.isSiteLocalAddress }
+            ?.hostAddress ?: "?"
+
     private companion object {
         const val REFRESH_MILLIS = 1000L
+        const val PORT = 8080
+        const val USERNAME = "camcast"
     }
 }

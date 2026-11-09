@@ -62,7 +62,7 @@ object RequestParser {
         val buf = ByteArrayOutputStream(128)
         while (true) {
             val b = input.read()
-            if (b == -1) return if (buf.size() == 0) null else buf.toString(Charsets.ISO_8859_1)
+            if (b == -1) return if (buf.size() == 0) null else String(buf.toByteArray(), Charsets.ISO_8859_1)
             if (b == '\n'.code) {
                 val bytes = buf.toByteArray()
                 val end = if (bytes.isNotEmpty() && bytes.last() == '\r'.code.toByte()) bytes.size - 1 else bytes.size

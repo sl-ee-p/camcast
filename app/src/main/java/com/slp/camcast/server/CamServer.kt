@@ -152,7 +152,7 @@ class CamServer(
         streamingClients.incrementAndGet()
         try {
             var last = 0L
-            while (running && !frames.isClosed) {
+            while (running && !frames.isClosed && !Thread.currentThread().isInterrupted) {
                 val frame = frames.awaitNewer(last, STREAM_POLL_MILLIS) ?: continue
                 last = frame.sequence
                 MjpegWriter.writeFrame(out, frame.jpeg, frame.timestampMillis)

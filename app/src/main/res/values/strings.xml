@@ -11,4 +11,6 @@
     <string name="preview_description">Latest camera frame</string>
     <string name="permission_denied">Camera permission is needed to stream.</string>
     <string name="camera_error">Camera error: %1$s</string>
+    <string name="endpoint_format">Stream: http://%1$s:%2$d/video\nUser: %3$s · Password: %4$s</string>
+    <string name="server_error">Cannot start the server: %1$s</string>
 </resources>

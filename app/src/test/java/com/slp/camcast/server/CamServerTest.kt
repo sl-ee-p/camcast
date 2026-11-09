@@ -9,6 +9,7 @@ import java.util.Base64
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import org.junit.After
+import org.junit.Before
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -26,11 +27,24 @@ class CamServerTest {
     private val sockets = mutableListOf<Socket>()
     private val jpeg = ByteArray(300) { (it * 7).toByte() }
 
+    // On Android an uncaught exception on any thread kills the app, so a server thread must never leak one.
+    private val uncaught = java.util.concurrent.CopyOnWriteArrayList<Throwable>()
+    private var previousHandler: Thread.UncaughtExceptionHandler? = null
+
+    @Before
+    fun trapUncaught() {
+        previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { _, e -> uncaught += e }
+    }
+
     @After
     fun tearDown() {
         sockets.forEach { runCatching { it.close() } }
         server?.stop()
         frames.close()
+        Thread.sleep(50) // let interrupted handler threads finish
+        Thread.setDefaultUncaughtExceptionHandler(previousHandler)
+        assertEquals("uncaught exceptions on server threads", emptyList<Throwable>(), uncaught.toList())
     }
 
     private fun start(maxClients: Int = 6, snapshotWait: Long = 200): Int {

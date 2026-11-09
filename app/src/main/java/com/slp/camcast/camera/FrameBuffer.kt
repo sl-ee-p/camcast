@@ -34,8 +34,9 @@ class FrameBuffer {
     fun latest(): JpegFrame? = synchronized(lock) { latest }
 
     /**
-     * Blocks until a frame newer than [afterSequence] exists, [timeoutMillis] pass or the buffer is
-     * closed. Returns null on timeout or close.
+     * Blocks until a frame newer than [afterSequence] exists, [timeoutMillis] pass, the buffer is
+     * closed or the thread is interrupted. Returns null on timeout, close or interrupt (the interrupt
+     * flag stays set, so callers can tell).
      */
     fun awaitNewer(afterSequence: Long, timeoutMillis: Long): JpegFrame? {
         val deadline = System.nanoTime() + timeoutMillis * 1_000_000L
@@ -45,7 +46,12 @@ class FrameBuffer {
                 if (closed) return null
                 val remainingMillis = (deadline - System.nanoTime()) / 1_000_000L
                 if (remainingMillis <= 0) return null
-                lock.wait(remainingMillis)
+                try {
+                    lock.wait(remainingMillis)
+                } catch (e: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    return null
+                }
             }
         }
     }

@@ -70,4 +70,23 @@ class FrameBufferTest {
         assertTrue(done.await(2, TimeUnit.SECONDS))
         assertNull(b.awaitNewer(0, 10_000))
     }
+
+    @Test
+    fun interruptedWaiterReturnsNullAndKeepsTheFlag() {
+        val b = FrameBuffer()
+        val result = AtomicReference<JpegFrame?>(b.put(1))
+        val interrupted = AtomicReference(false)
+        val done = CountDownLatch(1)
+        val t = Thread {
+            result.set(b.awaitNewer(1, 10_000))
+            interrupted.set(Thread.currentThread().isInterrupted)
+            done.countDown()
+        }
+        t.start()
+        Thread.sleep(50)
+        t.interrupt()
+        assertTrue(done.await(2, TimeUnit.SECONDS))
+        assertNull(result.get())
+        assertTrue(interrupted.get())
+    }
 }

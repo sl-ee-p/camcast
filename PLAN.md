@@ -24,7 +24,7 @@ the Redmi needs a manual tap in File Manager to install (MIUI blocks adb install
 - **C1 Skeleton (DONE 0.1.0):** Gradle project, package, theme, EN/IT strings, empty settings screen, CI-less local build, git + private repo.
 - **C2 Camera to JPEG (DONE 0.2.0):** CameraX ImageAnalysis -> JPEG frames at the chosen resolution/fps/quality. Unit test the frame
   throttling/encoding glue.
-- **C3 HTTP server:** `ServerSocket` server with `/video`, `/snapshot.jpg`, `/`; basic auth; several clients; clean shutdown.
+- **C3 HTTP server (DONE 0.3.0):** `ServerSocket` server with `/video`, `/snapshot.jpg`, `/`; basic auth; several clients; clean shutdown.
   Unit tests for request parsing, auth and the MJPEG framing.
 - **C4 Foreground service + UI:** service lifecycle, notification, wake lock, settings persisted (DataStore),
   start/stop, URL display, permission flow (camera, notifications).
@@ -47,3 +47,13 @@ the Redmi needs a manual tap in File Manager to install (MIUI blocks adb install
 - The activity runs the camera and stops it in `onStop`; C4 replaces that with a foreground service.
 - Emulator virtual camera delivers a pixel-art scene at 720x1280 (rotated upright) and ~10 fps at the cap.
 - Not yet tried: front camera, 480p/1080p presets, a real device camera (the Redmi).
+
+## Notes from C3
+- `server/`: `RequestParser` (GET/HEAD, size limits), `BasicAuth` (constant-time, blank credentials never match),
+  `MjpegWriter` (boundary `camcastframe`), `HttpResponse`, `CamServer` (accept loop, thread per client, max 6, 503 beyond).
+- Auth runs before routing, so unauthenticated clients can't probe paths. Every response closes the connection.
+- Threads: `stop()` interrupts handlers; an uncaught exception on any thread kills the Android app, so
+  `CamServerTest` traps uncaught exceptions (this caught a real `InterruptedException` crash on device).
+- The activity harness uses user `camcast` and a random 8-char password per run, shown on screen. C4 replaces
+  this with persisted settings. No rate limiting on failed logins (LAN only); revisit in C5 if wanted.
+- `adb forward tcp:18080 tcp:8080` + curl is the quick way to test a running emulator build.

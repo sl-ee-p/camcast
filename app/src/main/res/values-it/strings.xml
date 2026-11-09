@@ -11,4 +11,6 @@
     <string name="preview_description">Ultimo fotogramma della fotocamera</string>
     <string name="permission_denied">Serve il permesso della fotocamera per trasmettere.</string>
     <string name="camera_error">Errore della fotocamera: %1$s</string>
+    <string name="endpoint_format">Stream: http://%1$s:%2$d/video\nUtente: %3$s · Password: %4$s</string>
+    <string name="server_error">Impossibile avviare il server: %1$s</string>
 </resources>

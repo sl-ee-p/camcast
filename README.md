@@ -20,3 +20,6 @@ copy the APK over and tap it in File Manager.
 - C2 camera to JPEG (0.2.0): CameraX `ImageAnalysis` -> upright JPEG frames (`camera/`), capped by `FrameThrottle`
   (10% jitter tolerance), published into a `FrameBuffer` that C3's HTTP clients will wait on. The Start button runs
   the camera inside the activity and shows frame number, fps, size and a preview; C4 moves this into a foreground service.
+- C3 HTTP server (0.3.0): `/video` (MJPEG), `/snapshot.jpg`, `/` status page, all behind basic auth (`server/`).
+  The test screen shows the URL and a random per-run password; try it with
+  `adb forward tcp:18080 tcp:8080 && curl -u camcast:<password> -o snap.jpg http://127.0.0.1:18080/snapshot.jpg`.
