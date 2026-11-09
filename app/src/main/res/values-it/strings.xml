@@ -40,4 +40,7 @@
     <string name="status_running">In trasmissione</string>
     <string name="endpoint_format">Stream: %1$s</string>
     <string name="notification_denied">Le notifiche sono disattivate: la trasmissione continua, ma la sua notifica è nascosta.</string>
+    <string name="stats_waiting">In attesa del primo fotogramma…</string>
+    <string name="camera_missing_back">Questo telefono non ha una fotocamera posteriore.</string>
+    <string name="camera_missing_front">Questo telefono non ha una fotocamera frontale.</string>
 </resources>

@@ -12,6 +12,8 @@ import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.slp.camcast.R
+import com.slp.camcast.camera.CameraFacing
+import com.slp.camcast.camera.CameraMissingException
 import com.slp.camcast.camera.CameraSession
 import com.slp.camcast.camera.FrameBuffer
 import com.slp.camcast.net.LocalAddress
@@ -88,11 +90,17 @@ class StreamService : LifecycleService() {
             host = LocalAddress.find() ?: "?"
             acquireLocks()
             session = CameraSession(applicationContext, buffer, settings.stream) { error ->
-                handler.post { finish(getString(R.string.camera_error, error.message ?: error.javaClass.simpleName)) }
+                handler.post { finish(cameraErrorText(error)) }
             }.also { it.start(this@StreamService) }
             lastTickMillis = System.currentTimeMillis()
             handler.post(ticker)
         }
+    }
+
+    private fun cameraErrorText(error: Throwable) = when {
+        error is CameraMissingException && error.facing == CameraFacing.FRONT -> getString(R.string.camera_missing_front)
+        error is CameraMissingException -> getString(R.string.camera_missing_back)
+        else -> getString(R.string.camera_error, error.message ?: error.javaClass.simpleName)
     }
 
     private val ticker = object : Runnable {

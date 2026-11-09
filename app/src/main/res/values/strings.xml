@@ -39,4 +39,7 @@
     <string name="status_running">Streaming</string>
     <string name="endpoint_format">Stream: %1$s</string>
     <string name="notification_denied">Notifications are off: the stream still runs, but its notification is hidden.</string>
+    <string name="stats_waiting">Waiting for the first frame…</string>
+    <string name="camera_missing_back">This phone has no back camera.</string>
+    <string name="camera_missing_front">This phone has no front camera.</string>
 </resources>

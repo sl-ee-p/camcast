@@ -26,7 +26,7 @@ the Redmi needs a manual tap in File Manager to install (MIUI blocks adb install
   throttling/encoding glue.
 - **C3 HTTP server (DONE 0.3.0):** `ServerSocket` server with `/video`, `/snapshot.jpg`, `/`; basic auth; several clients; clean shutdown.
   Unit tests for request parsing, auth and the MJPEG framing.
-- **C4 Foreground service + UI:** service lifecycle, notification, wake lock, settings persisted (DataStore),
+- **C4 Foreground service + UI (DONE 0.4.0):** service lifecycle, notification, wake lock, settings persisted (DataStore),
   start/stop, URL display, permission flow (camera, notifications).
 - **C5 Boot and hardening:** start on boot, restart on camera error/disconnect, battery-optimisation prompt,
   MIUI autostart notes in the README, 2x font and Italian layout check.
@@ -57,3 +57,16 @@ the Redmi needs a manual tap in File Manager to install (MIUI blocks adb install
 - The activity harness uses user `camcast` and a random 8-char password per run, shown on screen. C4 replaces
   this with persisted settings. No rate limiting on failed logins (LAN only); revisit in C5 if wanted.
 - `adb forward tcp:18080 tcp:8080` + curl is the quick way to test a running emulator build.
+
+## Notes from C4
+- `service/StreamService` (a `LifecycleService`, foreground type `camera`) owns `CameraSession` + `CamServer`, a partial
+  wake lock and a Wi-Fi lock; `StreamController` (process-wide `StateFlow<StreamState>`) is how the activity sees it.
+  Stopped / Starting / Running(host, port, viewers, frames, fps, size) / Failed(message).
+- Settings: `settings/` (AppSettings, SettingsValidator, SettingsStore on DataStore). First run generates a random
+  10-char password; port 1024-65535, user name without ':', password >= 6 chars. The form locks while running.
+- Permission flow: camera, then notifications (API 33+). Denying notifications still runs the stream (the notification is hidden).
+- Return value is `START_NOT_STICKY`: a killed service stays dead. C5 decides on restart (note: from API 31 a camera
+  foreground service cannot be started from the background, and from API 34 not from BOOT_COMPLETED; the Redmi runs Android 11).
+- Missing camera gives a plain message (`CameraMissingException`); other camera errors show the raw message.
+- Verification gotcha: `uiautomator dump` fails ("could not get idle state") while the status line updates every second;
+  tap the running-state Stop button by coordinates.

@@ -21,5 +21,8 @@ copy the APK over and tap it in File Manager.
   (10% jitter tolerance), published into a `FrameBuffer` that C3's HTTP clients will wait on. The Start button runs
   the camera inside the activity and shows frame number, fps, size and a preview; C4 moves this into a foreground service.
 - C3 HTTP server (0.3.0): `/video` (MJPEG), `/snapshot.jpg`, `/` status page, all behind basic auth (`server/`).
-  The test screen shows the URL and a random per-run password; try it with
-  `adb forward tcp:18080 tcp:8080 && curl -u camcast:<password> -o snap.jpg http://127.0.0.1:18080/snapshot.jpg`.
+  Try it with `adb forward tcp:18080 tcp:8080 && curl -u camcast:<password> -o snap.jpg http://127.0.0.1:18080/snapshot.jpg`.
+- C4 foreground service + settings (0.4.0): `StreamService` runs the camera and server with a notification (Stop action),
+  wake lock and Wi-Fi lock, so streaming continues with the screen off or the app closed. One settings screen
+  (camera, resolution, frame-rate limit, JPEG quality, port, user name, password) persisted with DataStore.
+  The password is generated on first run; read it with the eye icon in the Password field.

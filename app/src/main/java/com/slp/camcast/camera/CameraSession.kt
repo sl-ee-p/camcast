@@ -15,6 +15,9 @@ import androidx.lifecycle.LifecycleOwner
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
+/** The phone has no camera facing the requested way. */
+class CameraMissingException(val facing: CameraFacing) : Exception("no $facing camera")
+
 /**
  * Runs the camera and publishes JPEG frames into [frames], at most [StreamConfig.fpsCap] a second.
  * The caller supplies the [LifecycleOwner] (an activity now, the foreground service later).
@@ -46,6 +49,7 @@ class CameraSession(
                     CameraFacing.BACK -> CameraSelector.DEFAULT_BACK_CAMERA
                     CameraFacing.FRONT -> CameraSelector.DEFAULT_FRONT_CAMERA
                 }
+                if (!cameraProvider.hasCamera(selector)) throw CameraMissingException(config.facing)
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(owner, selector, analysis)
                 executor = analysisExecutor

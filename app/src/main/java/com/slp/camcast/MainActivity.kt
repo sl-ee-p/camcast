@@ -182,10 +182,14 @@ class MainActivity : AppCompatActivity() {
                 status.setText(R.string.status_running)
                 endpoint.text = getString(R.string.endpoint_format, s.videoUrl)
                 endpoint.visibility = android.view.View.VISIBLE
-                stats.text = getString(
-                    R.string.stats_format, s.frames, s.fps, s.width, s.height,
-                    resources.getQuantityString(R.plurals.viewers, s.viewers, s.viewers),
-                )
+                stats.text = if (s.frames == 0L) {
+                    getString(R.string.stats_waiting)
+                } else {
+                    getString(
+                        R.string.stats_format, s.frames, s.fps, s.width, s.height,
+                        resources.getQuantityString(R.plurals.viewers, s.viewers, s.viewers),
+                    )
+                }
                 stats.visibility = android.view.View.VISIBLE
             }
         }
