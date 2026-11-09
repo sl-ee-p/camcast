@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="camcast_primary">#1E6FD9</color>
+    <color name="camcast_on_primary">#FFFFFF</color>
+    <color name="ic_launcher_background">#10243E</color>
+</resources>

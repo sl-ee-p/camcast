@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CamCast</string>
+    <string name="settings_title">Camera stream</string>
+    <string name="settings_placeholder">Settings arrive in the next milestones.</string>
+    <string name="status_stopped">Stopped</string>
+    <string name="action_start">Start</string>
+</resources>

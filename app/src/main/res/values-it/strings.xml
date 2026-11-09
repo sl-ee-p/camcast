@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CamCast</string>
+    <string name="settings_title">Streaming della fotocamera</string>
+    <string name="settings_placeholder">Le impostazioni arriveranno nei prossimi passaggi.</string>
+    <string name="status_stopped">Fermo</string>
+    <string name="action_start">Avvia</string>
+</resources>
