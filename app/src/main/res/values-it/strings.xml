@@ -13,4 +13,12 @@
     <string name="camera_error">Errore della fotocamera: %1$s</string>
     <string name="endpoint_format">Stream: http://%1$s:%2$d/video\nUtente: %3$s · Password: %4$s</string>
     <string name="server_error">Impossibile avviare il server: %1$s</string>
+    <string name="notification_channel">Trasmissione</string>
+    <string name="notification_title">CamCast sta trasmettendo</string>
+    <string name="status_starting">Avvio…</string>
+    <string name="settings_invalid">Le impostazioni non sono valide. Controlla porta, nome utente e password.</string>
+    <plurals name="viewers">
+        <item quantity="one">%d spettatore</item>
+        <item quantity="other">%d spettatori</item>
+    </plurals>
 </resources>
