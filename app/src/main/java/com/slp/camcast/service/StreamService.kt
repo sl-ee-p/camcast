@@ -52,6 +52,8 @@ class StreamService : LifecycleService() {
         return START_NOT_STICKY
     }
 
+    // The type constant is inlined at compile time, and ServiceCompat ignores the type below API 29.
+    @SuppressLint("InlinedApi")
     private fun begin() {
         if (active) return
         active = true

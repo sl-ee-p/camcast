@@ -1,17 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">CamCast</string>
-    <string name="settings_title">Camera stream</string>
-    <string name="settings_placeholder">Settings arrive in the next milestones.</string>
     <string name="status_stopped">Stopped</string>
     <string name="action_start">Start</string>
-    <string name="status_streaming">Camera running</string>
     <string name="action_stop">Stop</string>
-    <string name="stats_format">Frame %1$d · %2$.1f\u00A0fps · %3$d\u00A0KB · %4$d×%5$d</string>
-    <string name="preview_description">Latest camera frame</string>
+    <string name="stats_format">Frame %1$d · %2$.1f\u00A0fps · %3$d×%4$d · %5$s</string>
     <string name="permission_denied">Camera permission is needed to stream.</string>
     <string name="camera_error">Camera error: %1$s</string>
-    <string name="endpoint_format">Stream: http://%1$s:%2$d/video\nUser: %3$s · Password: %4$s</string>
     <string name="server_error">Cannot start the server: %1$s</string>
     <string name="notification_channel">Streaming</string>
     <string name="notification_title">CamCast is streaming</string>
@@ -21,4 +16,27 @@
         <item quantity="one">%d viewer</item>
         <item quantity="other">%d viewers</item>
     </plurals>
+    <string name="settings_title">CamCast</string>
+    <string name="section_camera">Camera</string>
+    <string name="camera_back">Back</string>
+    <string name="camera_front">Front</string>
+    <string name="section_resolution">Resolution</string>
+    <string name="resolution_480p">480p</string>
+    <string name="resolution_720p">720p</string>
+    <string name="resolution_1080p">1080p</string>
+    <string name="fps_label">Frame rate limit: %1$d fps</string>
+    <string name="fps_description">Frame rate limit</string>
+    <string name="quality_label">JPEG quality: %1$d</string>
+    <string name="quality_description">JPEG quality</string>
+    <string name="section_access">Access</string>
+    <string name="field_port">Port</string>
+    <string name="field_username">User name</string>
+    <string name="field_password">Password</string>
+    <string name="action_new_password">Generate a new password</string>
+    <string name="error_port">Use a port between 1024 and 65535</string>
+    <string name="error_username">Required; no colon or control characters</string>
+    <string name="error_password">At least 6 characters</string>
+    <string name="status_running">Streaming</string>
+    <string name="endpoint_format">Stream: %1$s</string>
+    <string name="notification_denied">Notifications are off: the stream still runs, but its notification is hidden.</string>
 </resources>
