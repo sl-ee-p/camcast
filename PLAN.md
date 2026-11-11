@@ -28,7 +28,7 @@ the Redmi needs a manual tap in File Manager to install (MIUI blocks adb install
   Unit tests for request parsing, auth and the MJPEG framing.
 - **C4 Foreground service + UI (DONE 0.4.0):** service lifecycle, notification, wake lock, settings persisted (DataStore),
   start/stop, URL display, permission flow (camera, notifications).
-- **C5 Boot and hardening:** start on boot, restart on camera error/disconnect, battery-optimisation prompt,
+- **C5 Boot and hardening (DONE 0.5.0):** start on boot, restart on camera error/disconnect, battery-optimisation prompt,
   MIUI autostart notes in the README, 2x font and Italian layout check.
 - **C6 On the phone:** install on the Redmi, 24 h soak test, view from the LAN (`ffplay`/VLC), then relay with
   go2rtc on a Pi or CT (not CT 100 while the emulator runs).
@@ -70,3 +70,20 @@ the Redmi needs a manual tap in File Manager to install (MIUI blocks adb install
 - Missing camera gives a plain message (`CameraMissingException`); other camera errors show the raw message.
 - Verification gotcha: `uiautomator dump` fails ("could not get idle state") while the status line updates every second;
   tap the running-state Stop button by coordinates.
+
+## Notes from C5
+- `service/RestartPolicy` (pure, tested): backoff 2/4/8/16/30 s, 10 attempts, `isRetryable` (a missing camera or a
+  `SecurityException` is not retried), 10 s stall threshold. The ticker in `StreamService` is the watchdog: no new frame
+  for 10 s after the camera started means restart. `StreamState.Recovering` is shown until a fresh frame arrives.
+- CameraX alone recovers from a quick `cameraserver` restart (a few seconds); the watchdog matters for longer outages.
+  Test on the emulator with `adb root`, then `setprop ctl.stop cameraserver` / `ctl.start cameraserver`. (The
+  `appops set CAMERA deny` route does nothing.)
+- Boot: `BootReceiver` (`RECEIVE_BOOT_COMPLETED`) starts the service with `EXTRA_FROM_BOOT`; a failure while started that
+  way posts a "problems" notification (`StreamNotification.postProblem`). On API 36 the platform refuses a camera FGS
+  from boot ("must be in the eligible state") unless exempt, so only the fallback was verified there.
+- `adb shell am broadcast BOOT_COMPLETED` is denied to the shell; use a real `adb reboot` (do not `force-stop` first,
+  and wait: the emulator delivers boot broadcasts long after `sys.boot_completed`).
+- Battery: `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` direct prompt, hidden once granted (sideloaded app, not for Play).
+  `adb shell dumpsys deviceidle whitelist -com.slp.camcast` removes it again for testing.
+- Left out: failed-login throttling (LAN only). `START_NOT_STICKY` kept: a sticky restart comes from the background
+  with no intent and cannot open the camera on newer Android.

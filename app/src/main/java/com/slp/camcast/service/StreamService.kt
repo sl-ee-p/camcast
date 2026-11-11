@@ -78,7 +78,8 @@ class StreamService : LifecycleService() {
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA,
             )
         } catch (e: SecurityException) {
-            finish(getString(R.string.camera_error, e.message ?: e.javaClass.simpleName))
+            // At boot this is the expected refusal on newer Android: say so instead of quoting the platform.
+            finish(if (fromBoot) getString(R.string.boot_blocked) else getString(R.string.camera_error, e.message ?: e.javaClass.simpleName))
             return
         }
         StreamController.publish(StreamState.Starting)
@@ -168,6 +169,12 @@ class StreamService : LifecycleService() {
                 return
             }
             if (frame != null && frame.sequence != lastSequence) attempt = 0
+            if (attempt > 0) {
+                // Restarted but no new frame yet: stay in Recovering instead of flashing back to Running.
+                StreamController.publish(StreamState.Recovering(host, port, attempt))
+                handler.postDelayed(this, TICK_MILLIS)
+                return
+            }
             val seconds = (now - lastTickMillis) / 1000.0
             val viewers = server?.streamers ?: 0
             val fps = if (frame != null && seconds > 0) (frame.sequence - lastSequence) / seconds else 0.0

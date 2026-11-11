@@ -11,8 +11,8 @@ android {
         // 26: adaptive icons, notification channels. The Redmi runs Android 11 (API 30).
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 5
+        versionName = "0.5.0"
     }
 
     buildTypes {
