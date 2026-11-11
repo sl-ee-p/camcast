@@ -43,4 +43,13 @@
     <string name="stats_waiting">In attesa del primo fotogramma…</string>
     <string name="camera_missing_back">Questo telefono non ha una fotocamera posteriore.</string>
     <string name="camera_missing_front">Questo telefono non ha una fotocamera frontale.</string>
+    <string name="camera_stalled">La fotocamera ha smesso di inviare fotogrammi e non è stato possibile riavviarla.</string>
+    <string name="notification_recovering">%1$s:%2$d · fotocamera persa, nuovo tentativo…</string>
+    <string name="status_recovering">Fotocamera persa, nuovo tentativo (%1$d)…</string>
+    <string name="field_start_on_boot">Avvia all\'accensione del telefono</string>
+    <string name="battery_hint">Android può fermare CamCast in background per risparmiare batteria. Consentigli di funzionare senza restrizioni.</string>
+    <string name="action_battery">Consenti esecuzione in background</string>
+    <string name="boot_blocked">Android non ha permesso a CamCast di avviare la fotocamera all\'accensione. Tocca per aprire l\'app e avviarla.</string>
+    <string name="notification_problem_title">CamCast non sta trasmettendo</string>
+    <string name="notification_channel_problems">Problemi</string>
 </resources>

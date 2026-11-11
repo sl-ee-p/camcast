@@ -15,6 +15,7 @@ import com.slp.camcast.R
 import com.slp.camcast.camera.CameraFacing
 import com.slp.camcast.camera.CameraMissingException
 import com.slp.camcast.camera.CameraSession
+import com.slp.camcast.camera.StreamConfig
 import com.slp.camcast.camera.FrameBuffer
 import com.slp.camcast.net.LocalAddress
 import com.slp.camcast.server.CamServer
@@ -42,6 +43,12 @@ class StreamService : LifecycleService() {
     private var lastSequence = 0L
     private var lastTickMillis = 0L
     private var lastViewers = -1
+    private var streamConfig: StreamConfig? = null
+    private var generation = 0 // bumped on every camera (re)start, so errors from a replaced session are ignored
+    private var attempt = 0 // consecutive camera restarts; a delivered frame resets it
+    private var recovering = false
+    private var fromBoot = false
+    private var cameraStartedMillis = 0L
 
     override fun onCreate() {
         super.onCreate()
@@ -50,7 +57,12 @@ class StreamService : LifecycleService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        if (intent?.action == StreamController.ACTION_STOP) finish(null) else begin()
+        if (intent?.action == StreamController.ACTION_STOP) {
+            finish(null)
+        } else {
+            if (!active) fromBoot = intent?.getBooleanExtra(StreamController.EXTRA_FROM_BOOT, false) == true
+            begin()
+        }
         return START_NOT_STICKY
     }
 
@@ -89,11 +101,48 @@ class StreamService : LifecycleService() {
             server = camServer
             host = LocalAddress.find() ?: "?"
             acquireLocks()
-            session = CameraSession(applicationContext, buffer, settings.stream) { error ->
-                handler.post { finish(cameraErrorText(error)) }
-            }.also { it.start(this@StreamService) }
+            streamConfig = settings.stream
+            startCamera()
             lastTickMillis = System.currentTimeMillis()
             handler.post(ticker)
+        }
+    }
+
+    private fun startCamera() {
+        val config = streamConfig ?: return
+        val buffer = frames ?: return
+        val mine = ++generation
+        cameraStartedMillis = System.currentTimeMillis()
+        session = CameraSession(applicationContext, buffer, config) { error ->
+            handler.post { if (mine == generation && active) onCameraProblem(error) }
+        }.also { it.start(this) }
+    }
+
+    /** The camera threw, or stopped delivering frames ([error] is null). Retry with a growing delay, or give up. */
+    private fun onCameraProblem(error: Throwable?) {
+        if (error != null && !RestartPolicy.isRetryable(error)) {
+            finish(cameraErrorText(error))
+            return
+        }
+        generation++ // drop any further errors from the session being replaced
+        session?.stop()
+        session = null
+        attempt++
+        if (RestartPolicy.shouldGiveUp(attempt)) {
+            finish(error?.let(::cameraErrorText) ?: getString(R.string.camera_stalled))
+            return
+        }
+        recovering = true
+        StreamController.publish(StreamState.Recovering(host, port, attempt))
+        notification.update(getString(R.string.notification_recovering, host, port))
+        lastViewers = -1
+        handler.postDelayed(restart, RestartPolicy.delayMillis(attempt))
+    }
+
+    private val restart = Runnable {
+        if (active) {
+            recovering = false
+            startCamera()
         }
     }
 
@@ -108,6 +157,17 @@ class StreamService : LifecycleService() {
             if (!active) return
             val frame = frames?.latest()
             val now = System.currentTimeMillis()
+            if (recovering) {
+                handler.postDelayed(this, TICK_MILLIS)
+                return
+            }
+            val lastFrame = maxOf(frame?.timestampMillis ?: 0L, cameraStartedMillis)
+            if (RestartPolicy.isStalled(lastFrame, now)) {
+                onCameraProblem(null)
+                handler.postDelayed(this, TICK_MILLIS)
+                return
+            }
+            if (frame != null && frame.sequence != lastSequence) attempt = 0
             val seconds = (now - lastTickMillis) / 1000.0
             val viewers = server?.streamers ?: 0
             val fps = if (frame != null && seconds > 0) (frame.sequence - lastSequence) / seconds else 0.0
@@ -140,6 +200,10 @@ class StreamService : LifecycleService() {
     private fun finish(error: String?) {
         active = false
         handler.removeCallbacks(ticker)
+        handler.removeCallbacks(restart)
+        generation++
+        recovering = false
+        attempt = 0
         session?.stop()
         session = null
         server?.stop()
@@ -152,6 +216,9 @@ class StreamService : LifecycleService() {
         wifiLock = null
         lastViewers = -1
         StreamController.publish(if (error == null) StreamState.Stopped else StreamState.Failed(error))
+        // Started at boot, nobody is looking at the app: say why it is not streaming.
+        if (error != null && fromBoot) notification.postProblem(error)
+        fromBoot = false
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }

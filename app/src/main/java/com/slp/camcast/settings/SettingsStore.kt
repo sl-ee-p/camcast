@@ -3,6 +3,7 @@ package com.slp.camcast.settings
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -40,6 +41,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
             it[PORT] = settings.port
             it[USERNAME] = settings.username
             it[PASSWORD] = settings.password
+            it[START_ON_BOOT] = settings.startOnBoot
         }
     }
 
@@ -57,6 +59,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
             port = port ?: AppSettings.DEFAULT_PORT,
             username = p[USERNAME]?.takeIf { it.isNotEmpty() } ?: AppSettings.DEFAULT_USERNAME,
             password = p[PASSWORD].orEmpty(),
+            startOnBoot = p[START_ON_BOOT] ?: false,
         )
     }
 
@@ -71,5 +74,6 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         val PORT = intPreferencesKey("port")
         val USERNAME = stringPreferencesKey("username")
         val PASSWORD = stringPreferencesKey("password")
+        val START_ON_BOOT = booleanPreferencesKey("start_on_boot")
     }
 }

@@ -13,7 +13,11 @@ import com.slp.camcast.R
 class StreamNotification(private val context: Context) {
     init {
         val channel = NotificationChannel(CHANNEL_ID, context.getString(R.string.notification_channel), NotificationManager.IMPORTANCE_LOW)
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(channel)
+        manager.createNotificationChannel(
+            NotificationChannel(PROBLEM_CHANNEL_ID, context.getString(R.string.notification_channel_problems), NotificationManager.IMPORTANCE_DEFAULT),
+        )
     }
 
     fun build(text: String): Notification {
@@ -41,8 +45,30 @@ class StreamNotification(private val context: Context) {
         context.getSystemService(NotificationManager::class.java).notify(ID, build(text))
     }
 
+    /** A dismissable note for when nobody is looking at the app (a failed start at boot); tapping it opens the app. */
+    fun postProblem(text: String) {
+        val open = PendingIntent.getActivity(
+            context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
+        )
+        val note = NotificationCompat.Builder(context, PROBLEM_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_camera)
+            .setContentTitle(context.getString(R.string.notification_problem_title))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        try {
+            context.getSystemService(NotificationManager::class.java).notify(PROBLEM_ID, note)
+        } catch (e: SecurityException) {
+            // Notifications are denied: nothing else to do.
+        }
+    }
+
     companion object {
         const val ID = 1
+        private const val PROBLEM_ID = 2
+        private const val PROBLEM_CHANNEL_ID = "problems"
         private const val CHANNEL_ID = "stream"
     }
 }

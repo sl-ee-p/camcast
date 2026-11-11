@@ -42,4 +42,13 @@
     <string name="stats_waiting">Waiting for the first frame…</string>
     <string name="camera_missing_back">This phone has no back camera.</string>
     <string name="camera_missing_front">This phone has no front camera.</string>
+    <string name="camera_stalled">The camera stopped delivering frames and could not be restarted.</string>
+    <string name="notification_recovering">%1$s:%2$d · camera lost, retrying…</string>
+    <string name="status_recovering">Camera lost, retrying (attempt %1$d)…</string>
+    <string name="field_start_on_boot">Start when the phone boots</string>
+    <string name="battery_hint">Android may stop CamCast in the background to save power. Allow it to run unrestricted.</string>
+    <string name="action_battery">Allow background running</string>
+    <string name="boot_blocked">Android did not let CamCast start the camera at boot. Tap to open the app and start it.</string>
+    <string name="notification_problem_title">CamCast is not streaming</string>
+    <string name="notification_channel_problems">Problems</string>
 </resources>

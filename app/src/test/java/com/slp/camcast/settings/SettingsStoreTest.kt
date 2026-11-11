@@ -44,9 +44,14 @@ class SettingsStoreTest {
 
     @Test
     fun savedSettingsComeBackUnchanged() = runBlocking {
-        val s = AppSettings(StreamConfig(CameraFacing.FRONT, StreamResolution.P1080, 15, 85), 9000, "marta", "pässword")
+        val s = AppSettings(StreamConfig(CameraFacing.FRONT, StreamResolution.P1080, 15, 85), 9000, "marta", "pässword", startOnBoot = true)
         store.save(s)
         assertEquals(s, store.load())
+    }
+
+    @Test
+    fun startOnBootIsOffByDefault() = runBlocking {
+        assertEquals(false, store.load().startOnBoot)
     }
 
     @Test

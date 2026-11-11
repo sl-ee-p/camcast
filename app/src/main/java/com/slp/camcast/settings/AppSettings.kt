@@ -9,6 +9,7 @@ data class AppSettings(
     val port: Int = DEFAULT_PORT,
     val username: String = DEFAULT_USERNAME,
     val password: String = "",
+    val startOnBoot: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_PORT = 8080

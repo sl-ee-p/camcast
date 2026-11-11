@@ -220,5 +220,30 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/action_new_password" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/startOnBoot"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/field_start_on_boot" />
+
+        <TextView
+            android:id="@+id/batteryHint"
+            style="@style/TextAppearance.Material3.BodyMedium"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/battery_hint"
+            android:visibility="gone" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/batteryButton"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/action_battery"
+            android:visibility="gone" />
     </LinearLayout>
 </ScrollView>

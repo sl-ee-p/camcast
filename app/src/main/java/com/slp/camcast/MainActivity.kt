@@ -2,7 +2,11 @@ package com.slp.camcast
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.PowerManager
+import android.provider.Settings
+import android.view.View
 import android.os.Build
 import android.os.Bundle
 import android.widget.TextView
@@ -11,6 +15,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.doAfterTextChanged
@@ -19,6 +24,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
+import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
@@ -54,6 +60,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var passwordLayout: TextInputLayout
     private lateinit var password: TextInputEditText
     private lateinit var newPassword: MaterialButton
+    private lateinit var startOnBoot: MaterialSwitch
+    private lateinit var batteryHint: TextView
+    private lateinit var batteryButton: MaterialButton
 
     private var state: StreamState = StreamState.Stopped
     private var loaded = false
@@ -87,6 +96,7 @@ class MainActivity : AppCompatActivity() {
         password.doAfterTextChanged { passwordLayout.error = null }
         newPassword.setOnClickListener { password.setText(PasswordGenerator.generate()) }
         startStop.setOnClickListener { onStartStop() }
+        batteryButton.setOnClickListener { requestUnrestrictedBattery() }
 
         lifecycleScope.launch {
             show(store.load())
@@ -100,10 +110,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        showBatteryPrompt()
+    }
+
     override fun onStop() {
         super.onStop()
         // Keep what the user typed, if it is valid and nothing is running with the old values.
-        if (loaded && state !is StreamState.Running && state !is StreamState.Starting) {
+        if (loaded && !state.busy) {
             val form = readForm()
             if (SettingsValidator.validate(form).isEmpty()) lifecycleScope.launch { store.save(form) }
         }
@@ -127,6 +142,9 @@ class MainActivity : AppCompatActivity() {
         passwordLayout = findViewById(R.id.passwordLayout)
         password = findViewById(R.id.password)
         newPassword = findViewById(R.id.newPassword)
+        startOnBoot = findViewById(R.id.startOnBoot)
+        batteryHint = findViewById(R.id.batteryHint)
+        batteryButton = findViewById(R.id.batteryButton)
     }
 
     @SuppressLint("SetTextI18n") // The port is parsed back with toIntOrNull, so it must stay plain ASCII digits.
@@ -146,6 +164,7 @@ class MainActivity : AppCompatActivity() {
         port.setText(s.port.toString())
         username.setText(s.username)
         password.setText(s.password)
+        startOnBoot.isChecked = s.startOnBoot
     }
 
     private fun readForm() = AppSettings(
@@ -162,26 +181,32 @@ class MainActivity : AppCompatActivity() {
         port = port.text?.toString()?.toIntOrNull() ?: -1,
         username = username.text?.toString().orEmpty(),
         password = password.text?.toString().orEmpty(),
+        startOnBoot = startOnBoot.isChecked,
     )
 
     private fun render(s: StreamState) {
         state = s
-        val editable = s is StreamState.Stopped || s is StreamState.Failed
-        listOf(facingBack(), facingFront(), res(R.id.res480), res(R.id.res720), res(R.id.res1080), fps, quality, port, username, password, newPassword)
+        val editable = !s.busy
+        listOf(facingBack(), facingFront(), res(R.id.res480), res(R.id.res720), res(R.id.res1080), fps, quality, port, username, password, newPassword, startOnBoot)
             .forEach { it.isEnabled = editable && loaded }
         passwordLayout.isEnabled = editable && loaded
         startStop.isEnabled = loaded
         startStop.setText(if (editable) R.string.action_start else R.string.action_stop)
-        endpoint.visibility = android.view.View.GONE
-        stats.visibility = android.view.View.GONE
+        endpoint.visibility = View.GONE
+        stats.visibility = View.GONE
         when (s) {
             StreamState.Stopped -> status.setText(R.string.status_stopped)
             StreamState.Starting -> status.setText(R.string.status_starting)
             is StreamState.Failed -> status.text = s.message
+            is StreamState.Recovering -> {
+                status.text = getString(R.string.status_recovering, s.attempt)
+                endpoint.text = getString(R.string.endpoint_format, s.videoUrl)
+                endpoint.visibility = View.VISIBLE
+            }
             is StreamState.Running -> {
                 status.setText(R.string.status_running)
                 endpoint.text = getString(R.string.endpoint_format, s.videoUrl)
-                endpoint.visibility = android.view.View.VISIBLE
+                endpoint.visibility = View.VISIBLE
                 stats.text = if (s.frames == 0L) {
                     getString(R.string.stats_waiting)
                 } else {
@@ -190,17 +215,17 @@ class MainActivity : AppCompatActivity() {
                         resources.getQuantityString(R.plurals.viewers, s.viewers, s.viewers),
                     )
                 }
-                stats.visibility = android.view.View.VISIBLE
+                stats.visibility = View.VISIBLE
             }
         }
     }
 
-    private fun facingBack() = findViewById<android.view.View>(R.id.facingBack)
-    private fun facingFront() = findViewById<android.view.View>(R.id.facingFront)
-    private fun res(id: Int) = findViewById<android.view.View>(id)
+    private fun facingBack() = findViewById<View>(R.id.facingBack)
+    private fun facingFront() = findViewById<View>(R.id.facingFront)
+    private fun res(id: Int) = findViewById<View>(id)
 
     private fun onStartStop() {
-        if (state is StreamState.Running || state is StreamState.Starting) {
+        if (state.busy) {
             StreamController.stop(this)
             return
         }
@@ -219,6 +244,23 @@ class MainActivity : AppCompatActivity() {
     private fun askNotificationsThenStart() {
         val needed = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !granted(Manifest.permission.POST_NOTIFICATIONS)
         if (needed) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) else launchService()
+    }
+
+    private fun showBatteryPrompt() {
+        val restricted = !getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
+        batteryHint.visibility = if (restricted) View.VISIBLE else View.GONE
+        batteryButton.visibility = if (restricted) View.VISIBLE else View.GONE
+    }
+
+    // The permission is declared for this one request; CamCast is installed by hand, not through Google Play.
+    @SuppressLint("BatteryLife")
+    private fun requestUnrestrictedBattery() {
+        val direct = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, "package:$packageName".toUri())
+        try {
+            startActivity(direct)
+        } catch (e: android.content.ActivityNotFoundException) {
+            startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        }
     }
 
     private fun launchService() = StreamController.start(this)
