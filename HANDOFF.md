@@ -2,7 +2,7 @@
 
 ## Done
 - C1 skeleton (0.1.0), C2 camera to JPEG (0.2.0), C3 HTTP server (0.3.0), C4 foreground service + settings UI (0.4.0),
-  C5 boot + hardening (0.5.0). All committed locally on master. No remote yet.
+  C5 boot + hardening (0.5.0). All committed on master and pushed to sl-ee-p/camcast (origin).
 - C5: `service/RestartPolicy` + watchdog/recovery in `StreamService` (new `StreamState.Recovering`), `startOnBoot` setting
   (switch in the Access section) + `BootReceiver`, "problems" notification, battery-optimisation prompt, README MIUI notes.
 - 76 unit tests green, lint clean (0 findings).
@@ -18,8 +18,6 @@ camera is back (snapshot 200); IT + 2x font for the Recovering status and the ne
 - Real Redmi (Android 11): whether a boot-started camera service delivers frames, MIUI Autostart/battery behaviour.
 - The 10-attempt give-up path on device (logic is unit tested; ~5 min run), the Italian text of the boot-blocked notification.
 - 1080p, front camera that exists, real Wi-Fi LAN client, ffmpeg/VLC/go2rtc/Frigate as clients (C6).
-- GitHub: `gh repo create sl-ee-p/camcast --private` was denied by the auto-mode classifier earlier; push still pending.
-  The user has to allow it or create the repo.
 
 ## Next
 - C6 on the phone: install on the Redmi (tap APK in File Manager), enable Autostart + battery, 24 h soak, view with
