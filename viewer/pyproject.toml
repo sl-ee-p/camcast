@@ -1,0 +1,10 @@
+# Lint settings only: the viewer runs from source with the Python 3.13 stdlib, no packaging.
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "ASYNC"]
+# ASYNC109: timeouts are plain parameters on purpose (tests shrink them). ASYNC230: the only files read in
+# coroutines are a few KB of static page assets and test fixtures; a thread hop would cost more than the read.
+ignore = ["ASYNC109", "ASYNC230"]
