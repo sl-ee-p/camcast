@@ -45,7 +45,7 @@ def static_file(web_dir: str | None, path: str) -> str | None:
     if path in PAGES:
         rel = PAGES[path]
     elif path.startswith(STATIC_PREFIX):
-        rel = path[len(STATIC_PREFIX):]
+        rel = path.lstrip("/")
     else:
         return None
     parts = rel.split("/")

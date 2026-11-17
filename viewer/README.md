@@ -19,4 +19,16 @@ python3 -m tests.fake_camcast --port 8080 --password-file PWFILE   # stand-in fo
 ```sh
 python3 -m unittest            # full suite
 ruff check .                   # lint (pyproject.toml)
+
+# Browser checks (dev box): Playwright from homelab-twin's node_modules, Chromium from ~/.cache/ms-playwright
+export NODE_PATH=~/projects/homelab-twin/node_modules
+node tests/browser/make-assets.cjs --frames out/frames   # PNG icons + 720x1280 test JPEGs
+tests/browser/servers.sh start                          # fake phone :18080 + viewer :18091 on loopback
+node tests/browser/check.cjs --local                    # screenshots in out/shots
+tests/browser/servers.sh stop
 ```
+
+## Page
+EN/IT (browser language, `?lang=it`, or the language button). Rotation and language are remembered per browser.
+A hidden tab closes its stream, so it frees its viewer slot. Breakpoints are in `em`, so large text gets the compact
+layout too.

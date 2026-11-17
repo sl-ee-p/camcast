@@ -1,0 +1,217 @@
+:root {
+  --bg: #0e1116;
+  --panel: #161b22;
+  --line: #2a313c;
+  --text: #e6edf3;
+  --muted: #9aa7b4;
+  --accent: #5cc8ff;
+  --ok: #3fb950;
+  --warn: #d29922;
+  --bad: #f85149;
+  --idle: #8b949e;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 1rem/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+[hidden] { display: none !important; }
+
+.app {
+  container: app / inline-size;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  background: var(--bg);
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.bar h1 { margin: 0; font-size: 1.15rem; font-weight: 650; letter-spacing: 0.01em; }
+
+.status { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.8rem; font-size: 0.9rem; }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--idle); flex: none; }
+.pill.online .dot { background: var(--ok); box-shadow: 0 0 0.5rem var(--ok); }
+.pill.connecting .dot { background: var(--warn); }
+.pill.offline .dot, .pill.noViewer .dot { background: var(--bad); }
+.meta { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* The stage measures itself (--w/--h from app.js) so a quarter-turned image can swap its limits. */
+.stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #000;
+}
+
+/* Absolute + auto margins: percentage limits resolve against the stage's definite size (grid rows would not). */
+.stage img {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: transform 0.2s ease;
+}
+
+.stage img:not([src]) { visibility: hidden; }
+.stage[data-rot="90"] img, .stage[data-rot="270"] img { max-width: var(--h, 100%); max-height: var(--w, 100%); }
+.stage[data-rot="90"] img { transform: rotate(90deg); }
+.stage[data-rot="180"] img { transform: rotate(180deg); }
+.stage[data-rot="270"] img { transform: rotate(270deg); }
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgb(14 17 22 / 0.72);
+  text-align: center;
+}
+
+.overlay p {
+  max-width: 28rem;
+  margin: 0;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--panel);
+  font-size: 1.05rem;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  transition: opacity 0.25s ease;
+}
+
+.controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.75rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: #1f2630;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.controls button:hover { border-color: var(--accent); }
+.controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.controls button:disabled { opacity: 0.55; cursor: progress; }
+
+.controls svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.badge { color: var(--muted); font-variant-numeric: tabular-nums; }
+.short { display: none; font-weight: 650; }
+
+/* Breakpoints are in em of the app, so they follow the text size as well as the screen width:
+   a phone gets a tab bar (label under the icon); a phone with large text gets icons only. */
+@container app (max-width: 34em) {
+  .controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4rem; padding: 0.4rem 0.5rem; }
+  .controls button {
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
+    min-width: 0;
+    padding: 0.35rem 0.2rem;
+    font-size: 0.8rem;
+    line-height: 1.15;
+    text-align: center;
+  }
+  .controls .badge { display: none; }
+}
+
+@container app (max-width: 20em) {
+  .bar { padding: 0.4rem 0.6rem; }
+  .bar h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .controls .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .controls button { min-height: 2.75rem; }
+  .controls .short { display: inline; font-size: 0.75rem; }
+  .controls #lang svg { display: none; }
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(5rem + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  max-width: calc(100vw - 2rem);
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: var(--panel);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.5);
+  z-index: 10;
+}
+
+/* Fullscreen (real or the CSS fallback for browsers without the API): video only, controls float and fade. */
+.app.fs { position: fixed; inset: 0; z-index: 5; padding: 0; }
+.app.fs .bar { display: none; }
+.app.fs .controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding-bottom: calc(0.6rem + env(safe-area-inset-bottom));
+  border: 0;
+  background: rgb(14 17 22 / 0.75);
+}
+.app.fs.idle .controls { opacity: 0; pointer-events: none; }
+.app.fs.idle { cursor: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stage img, .controls { transition: none; }
+}

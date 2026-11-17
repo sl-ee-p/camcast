@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1116">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>CamCast</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<div id="app" class="app">
+  <header class="bar">
+    <h1 data-i18n="title"></h1>
+    <div class="status" role="status" aria-live="polite">
+      <span id="state" class="pill"><span class="dot" aria-hidden="true"></span><span id="state-label"></span></span>
+      <span id="fps" class="meta"></span>
+      <span id="viewers" class="meta"></span>
+    </div>
+  </header>
+  <main id="stage" class="stage" data-rot="0">
+    <img id="stream" data-i18n-alt="streamAlt" alt="">
+    <div id="overlay" class="overlay" hidden><p id="overlay-text"></p></div>
+  </main>
+  <nav id="controls" class="controls">
+    <button id="rotate" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg>
+      <span class="label" data-i18n="rotate"></span><span id="rot-deg" class="badge"></span>
+    </button>
+    <button id="fullscreen" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      <span id="fs-label" class="label"></span>
+    </button>
+    <button id="snapshot" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+      <span class="label" data-i18n="snapshot"></span>
+    </button>
+    <button id="lang" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 2.5 14.4 0 17M12 3.5c-2.5 2.6-2.5 14.4 0 17"/></svg>
+      <span id="lang-label" class="label"></span><span class="short" data-i18n="switchLangShort" aria-hidden="true"></span>
+    </button>
+  </nav>
+  <div id="toast" class="toast" role="alert" hidden></div>
+</div>
+</body>
+</html>

@@ -2,11 +2,12 @@ import asyncio
 import ipaddress
 import json
 import logging
+import os
 
 from camcast_viewer.hub import Hub
 from camcast_viewer.server import ViewerServer
 from tests.fake_camcast import frame_index, make_frames
-from tests.helpers import ProxyCase, Stream, http_get
+from tests.helpers import LOOPBACK, ProxyCase, Stream, http_get
 
 
 class FanOutTest(ProxyCase):
@@ -167,6 +168,36 @@ class RoutesTest(ProxyCase):
             server.close()
             await server.wait_closed()
             await hub.close()
+
+
+class StaticTest(ProxyCase):
+    web_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web")
+
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.server.close()
+        await self.server.wait_closed()
+        self.server = await ViewerServer(self.hub, allow=LOOPBACK, web_dir=self.web_dir).start("127.0.0.1", 0)
+        self.port = self.server.sockets[0].getsockname()[1]
+
+    async def test_page_and_assets(self):
+        status, headers, body, _ = await http_get(self.port, "/")
+        self.assertEqual(status, 200)
+        self.assertIn("text/html", headers["content-type"])
+        self.assertIn("script-src 'self'", headers["content-security-policy"])
+        self.assertIn(b'src="/static/app.js"', body)
+        for path, kind in (("/static/app.js", "text/javascript"), ("/static/app.css", "text/css"),
+                           ("/static/i18n/it.json", "application/json"), ("/static/icon-192.png", "image/png"),
+                           ("/static/icon.svg", "image/svg+xml"),
+                           ("/manifest.webmanifest", "application/manifest+json")):
+            status, headers, _, _ = await http_get(self.port, path)
+            self.assertEqual((path, status), (path, 200))
+            self.assertTrue(headers["content-type"].startswith(kind), path)
+
+    async def test_no_escape_from_web_dir(self):
+        for path in ("/static/../camcast_viewer/config.py", "/static/%2e%2e/VERSION", "/static/.hidden.js",
+                     "/static/i18n//en.json", "/index.htm", "/static/", "/web/index.html", "/static/x.py"):
+            self.assertEqual((path, (await http_get(self.port, path))[0]), (path, 404))
 
 
 class SecretTest(ProxyCase):
