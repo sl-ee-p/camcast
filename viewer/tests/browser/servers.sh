@@ -4,6 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 RUN=out/run
+FAKE_HOST="${FAKE_HOST:-127.0.0.1}"
 FAKE_PORT=18080
 VIEW_PORT=18091
 
@@ -17,7 +18,7 @@ start_viewer() {
 }
 
 start_fake() {
-  python3 -m tests.fake_camcast --host 127.0.0.1 --port $FAKE_PORT --password-file $RUN/pw \
+  python3 -m tests.fake_camcast --host "$FAKE_HOST" --port $FAKE_PORT --password-file $RUN/pw \
     --frames-dir out/frames --fps "${FPS:-10}" >> $RUN/fake.log 2>&1 &
   echo $! > $RUN/fake.pid
   sleep 0.5

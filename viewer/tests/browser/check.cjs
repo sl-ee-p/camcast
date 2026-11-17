@@ -1,7 +1,8 @@
-// Browser checks for the viewer page. Screenshots go to out/shots/.
-//   NODE_PATH=... node tests/browser/check.cjs [--base URL] [--local]
-// --local also stops/starts the fake phone and the viewer through servers.sh (dev loopback setup only).
-// Without --local (e.g. against the Pi), the destructive steps are skipped.
+// Browser checks for the viewer page. Screenshots go to out/shots/ (or --shots DIR).
+//   NODE_PATH=... node tests/browser/check.cjs [--base URL] [--shots DIR] [--outages]
+// --outages also stops/starts the fake phone (servers.sh) and the viewer: by default the dev viewer via servers.sh,
+// or whatever VIEWER_STOP_CMD / VIEWER_START_CMD say (e.g. ssh to the Pi and restart the service).
+// Without it (e.g. against the real phone) the outage steps are skipped.
 const { execFileSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -12,9 +13,9 @@ const arg = (name, fallback) => {
   return at > 0 ? process.argv[at + 1] : fallback;
 };
 const BASE = arg("--base", "http://127.0.0.1:18091");
-const LOCAL = process.argv.includes("--local");
+const OUTAGES = process.argv.includes("--outages") || process.argv.includes("--local");
 const ROOT = path.resolve(__dirname, "../..");
-const SHOTS = path.join(ROOT, "out/shots");
+const SHOTS = path.resolve(arg("--shots", path.join(ROOT, "out/shots")));
 fs.mkdirSync(SHOTS, { recursive: true });
 
 const results = [];
@@ -25,6 +26,11 @@ function check(name, ok, detail = "") {
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? "  (" + detail + ")" : ""}`);
 }
 const servers = (...args) => execFileSync(path.join(__dirname, "servers.sh"), args, { stdio: "inherit" });
+const viewerCtl = (action) => {
+  const cmd = process.env[action === "stop" ? "VIEWER_STOP_CMD" : "VIEWER_START_CMD"];
+  if (cmd) execFileSync("/bin/bash", ["-c", cmd], { stdio: "inherit" });
+  else servers(action + "-viewer");
+};
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function newPage(browser, { locale = "en-US", phone = true, scale = 2, font2x = false, allow503 = false } = {}) {
@@ -230,7 +236,7 @@ const status = (page) => page.evaluate(() => fetch("/api/status").then((r) => r.
     await fifth.context().close();
     await hid.context().close();
 
-    if (LOCAL) {
+    if (OUTAGES) {
       // --- phone goes away and comes back -------------------------------------------------------
       outageSteps = true;
       servers("stop-fake");
@@ -251,11 +257,11 @@ const status = (page) => page.evaluate(() => fetch("/api/status").then((r) => r.
       check("phone back: live and moving again", await isMoving(desk));
 
       // --- the viewer on the Pi restarts ----------------------------------------------------------
-      servers("stop-viewer");
+      viewerCtl("stop");
       await waitLabel(desk, "No connection", 10000);
       check("viewer down: pill says no connection", /not answering/.test(await overlay(desk)));
       await desk.screenshot({ path: `${SHOTS}/en-desktop-viewer-down.png` });
-      servers("start-viewer");
+      viewerCtl("start");
       await waitLabel(desk, "Live", 30000);
       await desk.waitForFunction(() => document.getElementById("overlay").hidden, null, { timeout: 15000 });
       check("viewer back: stream reopens by itself", await isMoving(desk));

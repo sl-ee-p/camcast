@@ -1,0 +1,42 @@
+[Unit]
+Description=CamCast viewer (MJPEG fan-out for the LAN)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=camcast-viewer
+Group=camcast-viewer
+WorkingDirectory=/opt/camcast-viewer
+ExecStart=/usr/bin/python3 -B -m camcast_viewer --bind 0.0.0.0 --port 8091 --max-viewers 4 --allow 192.168.0.0/24 --allow 127.0.0.0/8
+# The phone's address and password: root-only file, copied by systemd into a private credentials directory.
+LoadCredential=upstream:/etc/camcast-viewer/upstream
+Restart=on-failure
+RestartSec=5
+# A Pi 3B+ has 1 GB: keep the viewer small whatever happens.
+MemoryHigh=48M
+MemoryMax=96M
+CPUQuota=50%
+TasksMax=16
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
