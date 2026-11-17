@@ -7,7 +7,7 @@ the phone (http://192.168.0.15:8080, DHCP reservation), fanned out to up to 4 br
 - Python 3.13 stdlib asyncio service `camcast-viewer`, deployed like homelab-status (git archive to staging, install.sh).
 - Upstream on demand: starts with the first viewer and stops 15 s after the last one leaves. While idle, status uses a HEAD probe (at most every 30 s, only
   while a page polls).
-- LAN only: 192.168.0.0/24 + loopback. Cap 4 viewers (the phone allows 6).
+- Clients: LAN 192.168.0.0/24, Tailscale 100.64.0.0/10 (added 2026-11-17 at the owner's request) and loopback. Cap 4 viewers (the phone allows 6).
 - Credentials in `/etc/camcast-viewer/upstream` (root 0600), handed to the service with systemd `LoadCredential=`.
 - No Kuma monitor and no homelab-status link (can be added on request).
 - PWA: manifest + icons only. A service worker or real install needs HTTPS, which plain-HTTP LAN IPs don't have.

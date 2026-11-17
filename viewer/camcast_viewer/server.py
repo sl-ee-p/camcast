@@ -107,7 +107,7 @@ class ViewerServer:
                 await self._text(writer, error.status, HTTPStatus(error.status).phrase)
                 return
             if not is_allowed(peer[0], self.allow):
-                await self._text(writer, 403, "Forbidden: LAN only")
+                await self._text(writer, 403, "Forbidden: LAN and Tailscale only")
                 return
             await self._route(reader, writer, method, target.split("?", 1)[0])
         except (ConnectionError, TimeoutError, asyncio.IncompleteReadError, asyncio.LimitOverrunError):

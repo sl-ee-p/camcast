@@ -39,6 +39,7 @@ class ConfigTest(unittest.TestCase):
         self.assertTrue(is_allowed("192.168.0.42", nets))
         self.assertTrue(is_allowed("::ffff:192.168.0.42", nets))
         self.assertFalse(is_allowed("100.94.211.4", nets))
+        self.assertTrue(is_allowed("100.94.211.4", parse_networks(["100.64.0.0/10"])))
         self.assertFalse(is_allowed("192.168.1.2", nets))
         self.assertFalse(is_allowed("garbage", nets))
         with self.assertRaises(ConfigError):

@@ -1,6 +1,6 @@
 # CamCast viewer
 
-A LAN-only web viewer for CamCast that runs on the Raspberry Pi. It keeps **one** MJPEG connection to the phone and
+A web viewer for CamCast, open to the LAN and the tailnet only, that runs on the Raspberry Pi. It keeps **one** MJPEG connection to the phone and
 fans it out to up to 4 browsers. JPEG bytes pass through untouched (no transcoding). The Pi adds the basic-auth header,
 so browsers never see the credentials. The upstream runs only while someone watches, plus a 15 s linger.
 
