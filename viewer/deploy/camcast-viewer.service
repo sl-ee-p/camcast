@@ -13,7 +13,9 @@ ExecStart=/usr/bin/python3 -B -m camcast_viewer --bind 0.0.0.0 --port 8091 --max
 LoadCredential=upstream:/etc/camcast-viewer/upstream
 Restart=on-failure
 RestartSec=5
-# A Pi 3B+ has 1 GB: keep the viewer small whatever happens.
+# A Pi 3B+ has 1 GB: keep the viewer small whatever happens. CPUQuota applies now; the memory limits only take
+# effect if the kernel runs with the memory cgroup (Raspberry Pi OS boots with cgroup_disable=memory).
+# Measured 2026-11-17: ~23 MB RSS with 3 viewers.
 MemoryHigh=48M
 MemoryMax=96M
 CPUQuota=50%

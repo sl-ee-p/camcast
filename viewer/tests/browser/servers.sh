@@ -18,8 +18,11 @@ start_viewer() {
 }
 
 start_fake() {
+  # restart-fake reuses the host, frames and fps chosen at `start`.
+  # shellcheck disable=SC1090
+  [ -f $RUN/fake.env ] && . $RUN/fake.env
   python3 -m tests.fake_camcast --host "$FAKE_HOST" --port $FAKE_PORT --password-file $RUN/pw \
-    --frames-dir out/frames --fps "${FPS:-10}" >> $RUN/fake.log 2>&1 &
+    --frames-dir "${FRAMES:-out/frames}" --fps "${FPS:-10}" >> $RUN/fake.log 2>&1 &
   echo $! > $RUN/fake.pid
   sleep 0.5
   kill -0 "$(cat $RUN/fake.pid)" 2>/dev/null || { echo "fake CamCast did not start (port $FAKE_PORT busy?)" >&2; exit 1; }
@@ -32,6 +35,7 @@ case "${1:-}" in
     shift
     mkdir -p $RUN && chmod 700 $RUN
     [ -d out/frames ] || { echo "run: node tests/browser/make-assets.cjs --frames out/frames" >&2; exit 1; }
+    printf 'FAKE_HOST=%q\nFRAMES=%q\nFPS=%q\n' "$FAKE_HOST" "${FRAMES:-out/frames}" "${FPS:-10}" > $RUN/fake.env
     echo 'fakepw-123' > $RUN/pw
     printf 'CAMCAST_URL=http://127.0.0.1:%s\nCAMCAST_USER=camcast\nCAMCAST_PASS=fakepw-123\n' $FAKE_PORT > $RUN/up
     chmod 600 $RUN/pw $RUN/up

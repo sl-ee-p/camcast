@@ -19,5 +19,18 @@ Verdict: fits.
 ## Milestones
 - [x] **V1** hub + proxy core, fake CamCast, unit/integration tests (0.1.0)
 - [x] **V2** page: live view, rotate, fullscreen, snapshot, status, EN/IT, manifest; Playwright checks (0.2.0)
-- [ ] **V3** deploy: install.sh + hardened unit, stage and install on the Pi, verify with the fake phone on dev
+- [x] **V3** deploy: install.sh + hardened unit, installed on the Pi (:8091) and verified with the fake phone on dev (0.3.0)
 - [ ] **V4** live: real CamCast, curl + Playwright, Pi CPU/RAM with 3 viewers; then 1.0.0, Setup Record, memory
+
+## Results
+**V3 load test on the Pi (2026-11-17, fake phone on dev, worst-case 249 KB frames at 10 fps ≈ 2.5 MB/s in):**
+
+| Viewers | Service CPU (% of one core) | Pi CPU (all cores) | MemAvailable | Temp |
+|---|---|---|---|---|
+| 0 (idle) | 0.1 | 1-2 % | 422-425 MB | 59 °C |
+| 1 | 8.3-9.0 | 3-18 % | 391-423 MB | 59-60 °C |
+| 3 | 11.4-13.3 | 5.5-25 % (spikes are the minutely collector/Kuma) | 379-421 MB | 59-61 °C |
+
+Service RSS 22.9 MB, peak 23.3 MB. All 3 pages kept moving at 9.9-10 fps. Exposure score (`systemd-analyze security`) 3.0.
+`MemoryMax` is not enforced: the Pi kernel runs with `cgroup_disable=memory`. `CPUQuota` is.
+Raw CSV: `out/load-fake-heavy.csv` (not committed).
