@@ -44,6 +44,14 @@
             android:layout_marginTop="4dp"
             android:visibility="gone" />
 
+        <TextView
+            android:id="@+id/motionStatus"
+            style="@style/TextAppearance.Material3.BodyMedium"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:visibility="gone" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/startStop"
             android:layout_width="match_parent"
@@ -160,6 +168,67 @@
             android:stepSize="5"
             android:valueFrom="10"
             android:valueTo="100" />
+
+        <TextView
+            style="@style/TextAppearance.Material3.TitleSmall"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/section_motion" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/motionClips"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/field_motion_clips" />
+
+        <TextView
+            style="@style/TextAppearance.Material3.BodyMedium"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/motion_sensitivity" />
+
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/sensitivity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:selectionRequired="true"
+            app:singleSelection="true">
+
+            <Button
+                android:id="@+id/sensitivityLow"
+                style="@style/Widget.CamCast.ToggleButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/motion_low" />
+
+            <Button
+                android:id="@+id/sensitivityMedium"
+                style="@style/Widget.CamCast.ToggleButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/motion_medium" />
+
+            <Button
+                android:id="@+id/sensitivityHigh"
+                style="@style/Widget.CamCast.ToggleButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/motion_high" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <TextView
+            style="@style/TextAppearance.Material3.BodySmall"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/motion_hint" />
 
         <TextView
             style="@style/TextAppearance.Material3.TitleSmall"

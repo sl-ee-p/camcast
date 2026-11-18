@@ -12,6 +12,8 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import com.slp.camcast.motion.LumaGrid
+import com.slp.camcast.motion.MotionPipeline
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -27,6 +29,8 @@ class CameraSession(
     private val frames: FrameBuffer,
     config: StreamConfig,
     private val onError: (Throwable) -> Unit,
+    /** Motion detection and clips, or null when they are off. */
+    private val motion: MotionPipeline? = null,
 ) {
     private val config = config.sanitized()
     private val throttle = FrameThrottle(this.config.fpsCap)
@@ -90,14 +94,20 @@ class CameraSession(
             if (!throttle.accept(it.imageInfo.timestamp)) return
             try {
                 val rotation = it.imageInfo.rotationDegrees
+                // The grid comes from the raw Y plane (sensor orientation is fine for comparing frames).
+                val grid = motion?.let { _ ->
+                    val y = it.planes[0]
+                    LumaGrid.fromYPlane(y.buffer, y.rowStride, y.pixelStride, it.width, it.height)
+                }
                 val jpeg = JpegEncoder.encode(it.toBitmap(), rotation, config.jpegQuality)
                 val upright = rotation % 180 != 0
-                frames.publish(
+                val frame = frames.publish(
                     jpeg,
                     if (upright) it.height else it.width,
                     if (upright) it.width else it.height,
                     System.currentTimeMillis(),
                 )
+                if (grid != null) motion.onFrame(frame, grid)
             } catch (e: Exception) {
                 onError(e)
             }

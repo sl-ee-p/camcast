@@ -1,6 +1,7 @@
 package com.slp.camcast.settings
 
 import com.slp.camcast.camera.StreamConfig
+import com.slp.camcast.motion.MotionSensitivity
 import java.security.SecureRandom
 
 /** Everything the user can configure. The service reads one snapshot when it starts. */
@@ -10,6 +11,9 @@ data class AppSettings(
     val username: String = DEFAULT_USERNAME,
     val password: String = "",
     val startOnBoot: Boolean = false,
+    /** Record a clip (30 s before and after) when something moves. */
+    val motionClips: Boolean = true,
+    val motionSensitivity: MotionSensitivity = MotionSensitivity.MEDIUM,
 ) {
     companion object {
         const val DEFAULT_PORT = 8080

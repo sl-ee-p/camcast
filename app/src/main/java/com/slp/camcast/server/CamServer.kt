@@ -1,6 +1,7 @@
 package com.slp.camcast.server
 
 import com.slp.camcast.camera.FrameBuffer
+import com.slp.camcast.clips.ClipReader
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -30,6 +31,8 @@ class CamServer(
      * that vanished without closing (Wi-Fi gone, power cut) would otherwise hold its slot until TCP gives up (~15 min).
      */
     private val writeStallMillis: Long = 20_000,
+    /** Motion clips, or null when recording is off (then the clip paths are 404). */
+    private val clips: ClipSource? = null,
 ) {
     @Volatile private var running = false
     private var serverSocket: ServerSocket? = null
@@ -143,7 +146,68 @@ class CamServer(
             "/" -> statusPage(out, !head)
             "/snapshot.jpg" -> snapshot(out, !head)
             "/video" -> video(client, out, head)
-            else -> HttpResponse.writeText(out, 404, "Not Found", !head)
+            "/events.json" -> events(out, !head)
+            else -> clipRoute(client, out, request.path, head)
+        }
+    }
+
+    private fun events(out: java.io.OutputStream, sendBody: Boolean) {
+        val json = clips?.eventsJson(System.currentTimeMillis())
+            ?: "{\"detection\":false,\"now\":${System.currentTimeMillis()},\"motion\":false,\"recording\":false,\"lastMotion\":null,\"clips\":[]}"
+        HttpResponse.write(out, 200, "OK", "application/json", json.toByteArray(), sendBody)
+    }
+
+    /** `/clips/<id>.jpg` (thumbnail), `/clips/<id>.mjpeg` (download), `/clips/<id>/play` (replay at the original pace). */
+    private fun clipRoute(client: Socket, out: java.io.OutputStream, path: String, head: Boolean) {
+        val match = CLIP_PATH.matchEntire(path)
+        val source = clips
+        if (match == null || source == null) {
+            HttpResponse.writeText(out, 404, "Not Found", !head)
+            return
+        }
+        val (id, kind) = match.destructured
+        val file = if (kind == ".jpg") source.thumbFile(id) else source.clipFile(id)
+        if (file == null) {
+            HttpResponse.writeText(out, 404, "Not Found", !head)
+            return
+        }
+        when (kind) {
+            ".jpg" -> HttpResponse.write(out, 200, "OK", "image/jpeg", file.readBytes(), !head)
+            ".mjpeg" -> download(out, file, id, head)
+            else -> replay(client, out, file, head)
+        }
+    }
+
+    private fun download(out: java.io.OutputStream, file: java.io.File, id: String, head: Boolean) {
+        HttpResponse.writeHeaders(
+            out, 200, "OK", "video/x-motion-jpeg", file.length().toInt(),
+            listOf("Content-Disposition: attachment; filename=\"camcast-$id.mjpeg\""),
+        )
+        if (!head) file.inputStream().use { it.copyTo(out, 64 * 1024) }
+        out.flush()
+    }
+
+    private fun replay(client: Socket, out: java.io.OutputStream, file: java.io.File, head: Boolean) {
+        HttpResponse.writeHeaders(out, 200, "OK", MjpegWriter.CONTENT_TYPE)
+        out.flush()
+        if (head) return
+        client.soTimeout = 0
+        try {
+            ClipReader(file).use { reader ->
+                var previous: Long? = null
+                while (running && !Thread.currentThread().isInterrupted) {
+                    val frame = reader.next() ?: break
+                    previous?.let { Thread.sleep((frame.timestampMillis - it).coerceIn(0, MAX_REPLAY_GAP_MILLIS)) }
+                    previous = frame.timestampMillis
+                    writingSince[client] = System.nanoTime()
+                    MjpegWriter.writeFrame(out, frame.jpeg, frame.timestampMillis)
+                    writingSince -= client
+                }
+            }
+        } catch (e: InterruptedException) {
+            // stop(): just end the replay
+        } finally {
+            writingSince -= client
         }
     }
 
@@ -189,5 +253,7 @@ class CamServer(
 
     private companion object {
         const val STREAM_POLL_MILLIS = 1_000L
+        const val MAX_REPLAY_GAP_MILLIS = 1_000L
+        val CLIP_PATH = Regex("/clips/([0-9]{8}-[0-9]{6}(?:-[0-9]{1,3})?)(\\.jpg|\\.mjpeg|/play)")
     }
 }

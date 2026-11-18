@@ -23,6 +23,9 @@ sealed interface StreamState {
         val fps: Double,
         val width: Int,
         val height: Int,
+        /** When movement was last seen (null: none yet, or detection off), and whether a clip is being written. */
+        val lastMotionMillis: Long? = null,
+        val recording: Boolean = false,
     ) : StreamState {
         val videoUrl get() = "http://$host:$port/video"
     }

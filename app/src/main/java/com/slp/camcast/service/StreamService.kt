@@ -17,6 +17,7 @@ import com.slp.camcast.camera.CameraMissingException
 import com.slp.camcast.camera.CameraSession
 import com.slp.camcast.camera.StreamConfig
 import com.slp.camcast.camera.FrameBuffer
+import com.slp.camcast.motion.MotionPipeline
 import com.slp.camcast.net.LocalAddress
 import com.slp.camcast.server.CamServer
 import com.slp.camcast.server.Credentials
@@ -37,6 +38,7 @@ class StreamService : LifecycleService() {
     private var frames: FrameBuffer? = null
     private var session: CameraSession? = null
     private var server: CamServer? = null
+    private var motion: MotionPipeline? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
 
@@ -105,13 +107,16 @@ class StreamService : LifecycleService() {
                 return@launch
             }
             val buffer = FrameBuffer()
-            val camServer = CamServer(settings.port, buffer, Credentials(settings.username, settings.password))
+            val pipeline = if (settings.motionClips) MotionPipeline(clipsDir(), settings.motionSensitivity) else null
+            val camServer = CamServer(settings.port, buffer, Credentials(settings.username, settings.password), clips = pipeline)
             try {
                 port = camServer.start()
             } catch (e: Exception) {
+                pipeline?.close()
                 finish(getString(R.string.server_error, e.message ?: e.javaClass.simpleName))
                 return@launch
             }
+            motion = pipeline
             frames = buffer
             server = camServer
             host = LocalAddress.find() ?: "?"
@@ -135,9 +140,9 @@ class StreamService : LifecycleService() {
         val buffer = frames ?: return
         val mine = ++generation
         cameraStartedMillis = System.currentTimeMillis()
-        session = CameraSession(applicationContext, buffer, config) { error ->
+        session = CameraSession(applicationContext, buffer, config, onError = { error ->
             handler.post { if (mine == generation && active) onCameraProblem(error) }
-        }.also { it.start(this) }
+        }, motion = motion).also { it.start(this) }
     }
 
     /** The camera threw, or stopped delivering frames ([error] is null). Retry with a growing delay, or give up. */
@@ -174,6 +179,9 @@ class StreamService : LifecycleService() {
         else -> getString(R.string.camera_error, error.message ?: error.javaClass.simpleName)
     }
 
+    /** Shared storage owned by the app (no permission needed): /sdcard/Android/data/com.slp.camcast/files/clips. */
+    private fun clipsDir() = getExternalFilesDir("clips") ?: java.io.File(filesDir, "clips")
+
     private val ticker = object : Runnable {
         override fun run() {
             if (!active) return
@@ -202,7 +210,10 @@ class StreamService : LifecycleService() {
             lastSequence = frame?.sequence ?: lastSequence
             lastTickMillis = now
             StreamController.publish(
-                StreamState.Running(host, port, viewers, frame?.sequence ?: 0, fps, frame?.width ?: 0, frame?.height ?: 0),
+                StreamState.Running(
+                    host, port, viewers, frame?.sequence ?: 0, fps, frame?.width ?: 0, frame?.height ?: 0,
+                    motion?.lastMotionMillis, motion?.isRecording == true,
+                ),
             )
             if (viewers != lastViewers) {
                 lastViewers = viewers
@@ -236,6 +247,9 @@ class StreamService : LifecycleService() {
         session = null
         server?.stop()
         server = null
+        // After the camera stopped, so no frame arrives while the last clip is being closed.
+        motion?.close()
+        motion = null
         frames?.close()
         frames = null
         wakeLock?.takeIf { it.isHeld }?.release()

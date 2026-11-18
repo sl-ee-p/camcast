@@ -31,6 +31,7 @@ import com.google.android.material.textfield.TextInputLayout
 import com.slp.camcast.camera.CameraFacing
 import com.slp.camcast.camera.StreamConfig
 import com.slp.camcast.camera.StreamResolution
+import com.slp.camcast.motion.MotionSensitivity
 import com.slp.camcast.service.StreamController
 import com.slp.camcast.service.StreamState
 import com.slp.camcast.settings.AppSettings
@@ -46,6 +47,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var status: TextView
     private lateinit var endpoint: TextView
     private lateinit var stats: TextView
+    private lateinit var motionStatus: TextView
+    private lateinit var motionClips: MaterialSwitch
+    private lateinit var sensitivity: MaterialButtonToggleGroup
     private lateinit var startStop: MaterialButton
     private lateinit var facing: MaterialButtonToggleGroup
     private lateinit var resolution: MaterialButtonToggleGroup
@@ -137,6 +141,9 @@ class MainActivity : AppCompatActivity() {
         status = findViewById(R.id.status)
         endpoint = findViewById(R.id.endpoint)
         stats = findViewById(R.id.stats)
+        motionStatus = findViewById(R.id.motionStatus)
+        motionClips = findViewById(R.id.motionClips)
+        sensitivity = findViewById(R.id.sensitivity)
         startStop = findViewById(R.id.startStop)
         facing = findViewById(R.id.facing)
         resolution = findViewById(R.id.resolution)
@@ -176,6 +183,14 @@ class MainActivity : AppCompatActivity() {
         username.setText(s.username)
         password.setText(s.password)
         startOnBoot.isChecked = s.startOnBoot
+        motionClips.isChecked = s.motionClips
+        sensitivity.check(
+            when (s.motionSensitivity) {
+                MotionSensitivity.LOW -> R.id.sensitivityLow
+                MotionSensitivity.MEDIUM -> R.id.sensitivityMedium
+                MotionSensitivity.HIGH -> R.id.sensitivityHigh
+            },
+        )
     }
 
     private fun readForm() = AppSettings(
@@ -193,19 +208,28 @@ class MainActivity : AppCompatActivity() {
         username = username.text?.toString().orEmpty(),
         password = password.text?.toString().orEmpty(),
         startOnBoot = startOnBoot.isChecked,
+        motionClips = motionClips.isChecked,
+        motionSensitivity = when (sensitivity.checkedButtonId) {
+            R.id.sensitivityLow -> MotionSensitivity.LOW
+            R.id.sensitivityHigh -> MotionSensitivity.HIGH
+            else -> MotionSensitivity.MEDIUM
+        },
     )
 
     private fun render(s: StreamState) {
         state = s
         val editable = !s.busy
-        listOf(facingBack(), facingFront(), res(R.id.res480), res(R.id.res720), res(R.id.res1080), fps, quality, port, username, password, newPassword)
-            .forEach { it.isEnabled = editable && loaded }
+        listOf(
+            facingBack(), facingFront(), res(R.id.res480), res(R.id.res720), res(R.id.res1080), fps, quality, port, username,
+            password, newPassword, motionClips, res(R.id.sensitivityLow), res(R.id.sensitivityMedium), res(R.id.sensitivityHigh),
+        ).forEach { it.isEnabled = editable && loaded }
         passwordLayout.isEnabled = editable && loaded
         startOnBoot.isEnabled = loaded
         startStop.isEnabled = loaded
         startStop.setText(if (editable) R.string.action_start else R.string.action_stop)
         endpoint.visibility = View.GONE
         stats.visibility = View.GONE
+        motionStatus.visibility = View.GONE
         when (s) {
             StreamState.Stopped -> status.setText(R.string.status_stopped)
             StreamState.Starting -> status.setText(R.string.status_starting)
@@ -228,6 +252,13 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
                 stats.visibility = View.VISIBLE
+                if (s.frames > 0 && readForm().motionClips) {
+                    motionStatus.text = s.lastMotionMillis?.let { at ->
+                        val time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.MEDIUM).format(java.util.Date(at))
+                        getString(if (s.recording) R.string.motion_last_recording else R.string.motion_last, time)
+                    } ?: getString(R.string.motion_none)
+                    motionStatus.visibility = View.VISIBLE
+                }
             }
         }
     }

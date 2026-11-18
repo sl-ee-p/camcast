@@ -47,8 +47,10 @@ class CamServerTest {
         assertEquals("uncaught exceptions on server threads", emptyList<Throwable>(), uncaught.toList())
     }
 
-    private fun start(maxClients: Int = 6, snapshotWait: Long = 200, writeStall: Long = 20_000): Int {
-        val s = CamServer(0, frames, creds, maxClients, snapshotWait, requestTimeoutMillis = 2_000, writeStallMillis = writeStall)
+    private fun start(maxClients: Int = 6, snapshotWait: Long = 200, writeStall: Long = 20_000, clips: ClipSource? = null): Int {
+        val s = CamServer(
+            0, frames, creds, maxClients, snapshotWait, requestTimeoutMillis = 2_000, writeStallMillis = writeStall, clips = clips,
+        )
         server = s
         return s.start()
     }
@@ -289,6 +291,80 @@ class CamServerTest {
         val ended = CountDownLatch(1)
         Thread { runCatching { input.readBytes() }; ended.countDown() }.start()
         assertTrue(ended.await(4, TimeUnit.SECONDS))
+    }
+
+    /** A clip of three frames 200 ms apart, served by a fake [ClipSource]. */
+    private inner class FakeClips : ClipSource {
+        val dir: java.io.File = java.io.File.createTempFile("clips", "").apply { delete(); mkdirs() }
+        val id = "20261118-190703"
+        val clip = java.io.File(dir, "$id.mjpeg").apply {
+            outputStream().use { o -> (0 until 3).forEach { MjpegWriter.writeFrame(o, jpeg.copyOf(100 + it), 1_000L + it * 200) } }
+        }
+        val thumb = java.io.File(dir, "$id.jpg").apply { writeBytes(jpeg) }
+        override fun eventsJson(nowMillis: Long) = "{\"clips\":[{\"id\":\"$id\"}]}"
+        override fun clipFile(id: String) = clip.takeIf { id == this.id }
+        override fun thumbFile(id: String) = thumb.takeIf { id == this.id }
+    }
+
+    @Test
+    fun eventsAreJsonAndSayWhenDetectionIsOff() {
+        val port = start()
+        val off = get(port, "/events.json")
+        assertEquals(200, off.status)
+        assertEquals("application/json", off.headers["content-type"])
+        assertTrue(String(off.body).contains("\"detection\":false"))
+        server!!.stop()
+        val fake = FakeClips()
+        val on = get(start(clips = fake), "/events.json")
+        assertTrue(String(on.body).contains(fake.id))
+        fake.dir.deleteRecursively()
+    }
+
+    @Test
+    fun clipThumbnailAndDownload() {
+        val fake = FakeClips()
+        val port = start(clips = fake)
+        val thumb = get(port, "/clips/${fake.id}.jpg")
+        assertEquals("image/jpeg", thumb.headers["content-type"])
+        assertArrayEquals(jpeg, thumb.body)
+        val dl = get(port, "/clips/${fake.id}.mjpeg")
+        assertEquals(200, dl.status)
+        assertEquals("video/x-motion-jpeg", dl.headers["content-type"])
+        assertTrue(dl.headers["content-disposition"]!!.contains("camcast-${fake.id}.mjpeg"))
+        assertArrayEquals(fake.clip.readBytes(), dl.body)
+        fake.dir.deleteRecursively()
+    }
+
+    @Test
+    fun clipReplayKeepsTheOriginalPace() {
+        val fake = FakeClips()
+        val port = start(clips = fake)
+        val s = connect(port)
+        s.getOutputStream().write("GET /clips/${fake.id}/play HTTP/1.1\r\n$auth\r\n\r\n".toByteArray())
+        val input = s.getInputStream()
+        val (status, headers) = readHead(input)
+        assertEquals(200, status)
+        assertEquals(MjpegWriter.CONTENT_TYPE, headers["content-type"])
+        val t = System.nanoTime()
+        val parts = (0 until 3).map { readPart(input) }
+        val elapsed = (System.nanoTime() - t) / 1_000_000
+        assertEquals(listOf(100, 101, 102), parts.map { it.size })
+        assertTrue("took $elapsed ms", elapsed in 350..1_500) // two 200 ms gaps
+        fake.dir.deleteRecursively()
+    }
+
+    @Test
+    fun unknownOrMalformedClipsAre404AndClipsNeedAuth() {
+        val fake = FakeClips()
+        val port = start(clips = fake)
+        assertEquals(404, get(port, "/clips/20200101-000000.mjpeg").status)
+        assertEquals(404, get(port, "/clips/../${fake.id}.mjpeg").status)
+        assertEquals(404, get(port, "/clips/${fake.id}.json").status)
+        assertEquals(401, get(port, "/clips/${fake.id}.mjpeg", withAuth = false).status)
+        assertEquals(401, get(port, "/events.json", withAuth = false).status)
+        server!!.stop()
+        assertEquals(404, get(start(), "/clips/${fake.id}.jpg").status) // recording off
+        fake.dir.deleteRecursively()
     }
 
     @Test

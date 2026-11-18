@@ -10,6 +10,8 @@ import java.util.Locale
  * and `<id>.mjpeg.part` while a clip is being written. Keeps the folder under [maxBytes] and the disk above
  * [minFreeBytes] by deleting the oldest clips. Thread safe (one lock; every call is short except [enforceLimits]).
  */
+// usableSpace on purpose: clips should not count on the system clearing other apps' caches for them.
+@Suppress("UsableSpace")
 class ClipStore(
     val dir: File,
     private val maxBytes: Long = 2L * 1024 * 1024 * 1024,
@@ -17,6 +19,7 @@ class ClipStore(
     private val freeBytes: () -> Long = { dir.usableSpace },
 ) {
     private val lock = Any()
+    private var cached: List<ClipInfo>? = null // invalidated by every change made through this store
 
     init {
         dir.mkdirs()
@@ -38,10 +41,11 @@ class ClipStore(
 
     /** Finished clips, newest first. */
     fun list(): List<ClipInfo> = synchronized(lock) {
-        dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty()
+        cached ?: dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty()
             .mapNotNull { f -> runCatching { ClipInfo.fromJson(f.readText()) }.getOrNull() }
             .filter { clipFile(it.id).exists() }
             .sortedByDescending { it.motionMillis }
+            .also { cached = it }
     }
 
     fun find(id: String): ClipInfo? = if (ClipInfo.ID.matches(id)) list().firstOrNull { it.id == id } else null
@@ -50,10 +54,12 @@ class ClipStore(
     fun publish(info: ClipInfo) = synchronized(lock) {
         infoFile(info.id).writeText(info.toJson())
         partFile(info.id).renameTo(clipFile(info.id))
+        cached = null
     }
 
     fun delete(id: String) = synchronized(lock) {
         listOf(clipFile(id), partFile(id), thumbFile(id), infoFile(id)).forEach { it.delete() }
+        cached = null
     }
 
     /**

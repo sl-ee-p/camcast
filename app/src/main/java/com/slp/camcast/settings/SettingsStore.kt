@@ -11,6 +11,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.slp.camcast.camera.CameraFacing
 import com.slp.camcast.camera.StreamConfig
 import com.slp.camcast.camera.StreamResolution
+import com.slp.camcast.motion.MotionSensitivity
 import kotlinx.coroutines.flow.first
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore("settings")
@@ -42,6 +43,8 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
             it[USERNAME] = settings.username
             it[PASSWORD] = settings.password
             it[START_ON_BOOT] = settings.startOnBoot
+            it[MOTION_CLIPS] = settings.motionClips
+            it[MOTION_SENSITIVITY] = settings.motionSensitivity.name
         }
     }
 
@@ -71,6 +74,8 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
             username = p[USERNAME]?.takeIf { it.isNotEmpty() } ?: AppSettings.DEFAULT_USERNAME,
             password = p[PASSWORD].orEmpty(),
             startOnBoot = p[START_ON_BOOT] ?: false,
+            motionClips = p[MOTION_CLIPS] ?: true,
+            motionSensitivity = enumOrDefault(p[MOTION_SENSITIVITY], MotionSensitivity.MEDIUM),
         )
     }
 
@@ -87,5 +92,7 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         val PASSWORD = stringPreferencesKey("password")
         val START_ON_BOOT = booleanPreferencesKey("start_on_boot")
         val STREAM_WANTED = booleanPreferencesKey("stream_wanted")
+        val MOTION_CLIPS = booleanPreferencesKey("motion_clips")
+        val MOTION_SENSITIVITY = stringPreferencesKey("motion_sensitivity")
     }
 }

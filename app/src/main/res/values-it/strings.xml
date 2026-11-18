@@ -29,6 +29,16 @@
     <string name="fps_description">Limite di fotogrammi</string>
     <string name="quality_label">Qualità JPEG: %1$d</string>
     <string name="quality_description">Qualità JPEG</string>
+    <string name="section_motion">Movimento</string>
+    <string name="field_motion_clips">Registra una clip quando qualcosa si muove</string>
+    <string name="motion_sensitivity">Sensibilità</string>
+    <string name="motion_low">Bassa</string>
+    <string name="motion_medium">Media</string>
+    <string name="motion_high">Alta</string>
+    <string name="motion_hint">Ogni clip tiene 30 s prima e 30 s dopo il movimento, in Android/data/com.slp.camcast/files/clips. Oltre 2 GB le clip più vecchie vengono eliminate.</string>
+    <string name="motion_none">Nessun movimento finora</string>
+    <string name="motion_last">Ultimo movimento: %1$s</string>
+    <string name="motion_last_recording">Ultimo movimento: %1$s · registrazione in corso</string>
     <string name="section_access">Accesso</string>
     <string name="field_port">Porta</string>
     <string name="field_username">Nome utente</string>
