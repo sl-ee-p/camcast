@@ -11,8 +11,8 @@ export JAVA_HOME=~/dev/jdk17 ANDROID_HOME=~/dev/android-sdk
 ./gradlew testDebugUnitTest lintDebug assembleDebug
 ```
 
-Debug APK: `app/build/outputs/apk/debug/app-debug.apk`. On the Redmi (MIUI, no SIM) adb installs are blocked:
-copy the APK over and tap it in File Manager.
+Debug APK: `app/build/outputs/apk/debug/app-debug.apk`. On the Redmi, `adb install -r` works ("Install via USB" is on);
+an update resumes the stream by itself if it was running.
 
 ## Status
 
@@ -31,6 +31,15 @@ copy the APK over and tap it in File Manager.
   app shows "Camera lost, retrying". "Start when the phone boots" (off by default) starts the stream from
   `BootReceiver`; if Android refuses, a notification says so and opens the app. The app also offers to exempt itself
   from battery optimisation.
+
+- 0.5.1 (on the Redmi): frame cap reaches its target (was ~8 of 10 fps), a vanished viewer frees its slot after 20 s,
+  resume after an app update, and boot/update starts go through `AutoStartActivity` (needs "Display over other apps"),
+  because Android 11 gives a camera service started from the background no camera.
+- 0.6.0 motion clips: frame differencing on a 64x48 luma grid (no AI), sensitivity low/medium/high. A clip keeps 30 s
+  before and 30 s after the last movement (max 5 min) as an MJPEG file in
+  `/sdcard/Android/data/com.slp.camcast/files/clips` (+ `.json`, `.jpg` thumbnail); oldest deleted above 2 GB or below
+  500 MB free. ~1.3 MB/s at 1080p (a 60 s clip is ~80 MB), ~0.5 MB/s at 720p. API: `/events.json`,
+  `/clips/<id>.jpg`, `/clips/<id>.mjpeg` (opens in VLC/ffplay), `/clips/<id>/play`. The Pi viewer shows alerts and clips.
 
 ## Keeping it alive on the Redmi (MIUI)
 

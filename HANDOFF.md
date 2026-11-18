@@ -1,27 +1,36 @@
-# CamCast handoff
+# CamCast handoff (2026-11-18)
 
 ## Done
-- C1 skeleton (0.1.0), C2 camera to JPEG (0.2.0), C3 HTTP server (0.3.0), C4 foreground service + settings UI (0.4.0),
-  C5 boot + hardening (0.5.0). All committed on master and pushed to sl-ee-p/camcast (origin).
-- C5: `service/RestartPolicy` + watchdog/recovery in `StreamService` (new `StreamState.Recovering`), `startOnBoot` setting
-  (switch in the Access section) + `BootReceiver`, "problems" notification, battery-optimisation prompt, README MIUI notes.
-- 76 unit tests green, lint clean (0 findings).
+- C1-C5 (0.1.0-0.5.0), C6 device pass (0.5.1), motion clips C7-C9 (0.6.0) on the phone, viewer V4 + V5 (0.4.0) on the Pi.
+  All committed and pushed. See PLAN.md (C6 status, "Motion clips") and viewer/PLAN.md.
+- Tests: app 108 unit tests, lint clean (only the "Gradle 9.9.1 available" notice); viewer 46 unit tests, ruff,
+  Playwright `events.cjs` 29/29 and `check.cjs` 25/25 (local viewer -> emulator phone).
 
-## Verified on the emulator (a16 / API 36)
-Start-on-boot switch persists; real `adb reboot` starts the app process from `BootReceiver` and the platform refuses the
-camera FGS, which surfaces as the "CamCast is not streaming" notification; battery prompt (system dialog, hint hides once
-allowed, shows again after removing the whitelist); camera outage (`cameraserver` stopped ~40 s): status and
-notification go to "Camera lost, retrying (attempt N)", no flapping, and it returns to Streaming by itself once the
-camera is back (snapshot 200); IT + 2x font for the Recovering status and the new rows.
+## Verified on the Redmi (Android 11, Wi-Fi)
+Auth, snapshot, MJPEG, ffmpeg, screen-off streaming, 6-client cap, stalled and vanished viewers, front camera,
+480p/720p/1080p fps after the throttle fix, notification Stop, user Stop respected across updates, resume after update
+while locked with the screen off, EN/IT/2x settings incl. the new rows. Motion: a person walking past recorded with
+30 s before/after; no false clip in ~10 min of a still dim scene. 40 min soak at 1080p/10 fps on battery: steady
+10 fps, 35.7 C, battery 59 -> 41 % (~27 %/h): it needs a charger.
+
+## State left behind
+- The phone: stream stopped and "Record a clip when something moves" OFF (changed by the owner during the session;
+  not touched). "Start when the phone boots" ON, overlay permission granted. Phone language still Italian and
+  screen timeout 30 min from the test session (owner interrupted the restore; ask before changing).
+- One 95 MB clip (20261118-191939) is on the phone.
+- The emulator a16: CamCast 0.6.0 (without recordingSince) stopped, ~1.8 GB of clips of its moving test scene in the app
+  folder (uninstall or clear data to drop them).
+- Pi viewer 0.4.0 deployed with the real phone credentials.
 
 ## Not verified
-- Real Redmi (Android 11): whether a boot-started camera service delivers frames, MIUI Autostart/battery behaviour.
-- The 10-attempt give-up path on device (logic is unit tested; ~5 min run), the Italian text of the boot-blocked notification.
-- 1080p, front camera that exists, real Wi-Fi LAN client, ffmpeg/VLC/go2rtc/Frigate as clients (C6).
+- A real reboot of the phone with start-on-boot (wireless debugging drops on reboot); the update path, which uses the
+  same AutoStartActivity, is verified.
+- The viewer V5 against the real phone on the Pi (phone was stopped by the owner); verified locally against the emulator.
+- 24 h soak, clip retention at the 2 GB limit on the phone, motion outdoors / at night, Pi load with real frames.
 
 ## Next
-- C6 on the phone: install on the Redmi (tap APK in File Manager), enable Autostart + battery, 24 h soak, view with
-  ffplay/VLC, relay with go2rtc on a Pi or CT (not CT 100 while the emulator runs).
-- Build: `JAVA_HOME=~/dev/jdk17 ANDROID_HOME=~/dev/android-sdk ./gradlew testDebugUnitTest lintDebug assembleDebug`
-  (set the variables in the same command; the shell does not keep them between calls).
-- Emulator tips: `adb root` works on a16; `uiautomator dump` fails while the stats update, tap by coordinates.
+- Owner: turn motion clips back on if wanted; put the phone on a charger.
+- Maybe: MP4 clips via MediaCodec (5-10x smaller), clip delete from the viewer, a mask for areas to ignore,
+  phone-side notification on movement.
+- Build: `JAVA_HOME=~/dev/jdk17 ANDROID_HOME=~/dev/android-sdk ./gradlew testDebugUnitTest lintDebug assembleDebug`.
+- Locked phone tricks: `tools/prefs.py` edits settings over `run-as`; a reinstall restarts the stream.
