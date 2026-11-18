@@ -45,6 +45,10 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         }
     }
 
+    suspend fun setStartOnBoot(enabled: Boolean) {
+        dataStore.edit { it[START_ON_BOOT] = enabled }
+    }
+
     /** Whether the stream should be running: set when it starts, cleared only when the user stops it. */
     suspend fun isStreamWanted(): Boolean = dataStore.data.first()[STREAM_WANTED] ?: false
 

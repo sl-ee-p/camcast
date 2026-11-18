@@ -100,7 +100,11 @@ class MainActivity : AppCompatActivity() {
         startStop.setOnClickListener { onStartStop() }
         batteryButton.setOnClickListener { requestUnrestrictedBattery() }
         overlayButton.setOnClickListener { requestOverlay() }
-        startOnBoot.setOnCheckedChangeListener { _, _ -> showOverlayPrompt() }
+        startOnBoot.setOnCheckedChangeListener { button, checked ->
+            showOverlayPrompt()
+            // Saved at once: it does not touch the running stream, so it stays editable while streaming.
+            if (loaded && button.isPressed) lifecycleScope.launch { store.setStartOnBoot(checked) }
+        }
 
         lifecycleScope.launch {
             show(store.load())
@@ -194,9 +198,10 @@ class MainActivity : AppCompatActivity() {
     private fun render(s: StreamState) {
         state = s
         val editable = !s.busy
-        listOf(facingBack(), facingFront(), res(R.id.res480), res(R.id.res720), res(R.id.res1080), fps, quality, port, username, password, newPassword, startOnBoot)
+        listOf(facingBack(), facingFront(), res(R.id.res480), res(R.id.res720), res(R.id.res1080), fps, quality, port, username, password, newPassword)
             .forEach { it.isEnabled = editable && loaded }
         passwordLayout.isEnabled = editable && loaded
+        startOnBoot.isEnabled = loaded
         startStop.isEnabled = loaded
         startStop.setText(if (editable) R.string.action_start else R.string.action_stop)
         endpoint.visibility = View.GONE

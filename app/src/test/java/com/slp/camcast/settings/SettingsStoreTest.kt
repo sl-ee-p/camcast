@@ -33,6 +33,13 @@ class SettingsStoreTest {
     }
 
     @Test
+    fun startOnBootCanBeSavedOnItsOwn() = runBlocking {
+        val settings = store.load()
+        store.setStartOnBoot(true)
+        assertEquals(settings.copy(startOnBoot = true), store.load())
+    }
+
+    @Test
     fun streamWantedDefaultsOffAndIsKeptApartFromTheSettings() = runBlocking {
         assertEquals(false, store.isStreamWanted())
         store.setStreamWanted(true)

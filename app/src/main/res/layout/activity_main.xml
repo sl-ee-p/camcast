@@ -68,7 +68,7 @@
 
             <Button
                 android:id="@+id/facingBack"
-                style="?attr/materialButtonOutlinedStyle"
+                style="@style/Widget.CamCast.ToggleButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -76,7 +76,7 @@
 
             <Button
                 android:id="@+id/facingFront"
-                style="?attr/materialButtonOutlinedStyle"
+                style="@style/Widget.CamCast.ToggleButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -100,7 +100,7 @@
 
             <Button
                 android:id="@+id/res480"
-                style="?attr/materialButtonOutlinedStyle"
+                style="@style/Widget.CamCast.ToggleButton"
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp"
                 android:layout_width="0dp"
@@ -110,7 +110,7 @@
 
             <Button
                 android:id="@+id/res720"
-                style="?attr/materialButtonOutlinedStyle"
+                style="@style/Widget.CamCast.ToggleButton"
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp"
                 android:layout_width="0dp"
@@ -120,7 +120,7 @@
 
             <Button
                 android:id="@+id/res1080"
-                style="?attr/materialButtonOutlinedStyle"
+                style="@style/Widget.CamCast.ToggleButton"
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp"
                 android:layout_width="0dp"
