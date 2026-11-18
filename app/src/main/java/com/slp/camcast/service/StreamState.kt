@@ -41,6 +41,7 @@ object StreamController {
     const val ACTION_START = "com.slp.camcast.START"
     const val ACTION_STOP = "com.slp.camcast.STOP"
     const val EXTRA_FROM_BOOT = "fromBoot"
+    const val EXTRA_AFTER_UPDATE = "afterUpdate"
 
     private val mutableState = MutableStateFlow<StreamState>(StreamState.Stopped)
     val state: StateFlow<StreamState> = mutableState.asStateFlow()
@@ -50,8 +51,9 @@ object StreamController {
     }
 
     /** Call from the foreground (an activity): that is what lets the service start with the camera. */
-    fun start(context: Context, fromBoot: Boolean = false) {
-        val intent = Intent(context, StreamService::class.java).setAction(ACTION_START).putExtra(EXTRA_FROM_BOOT, fromBoot)
+    fun start(context: Context, fromBoot: Boolean = false, afterUpdate: Boolean = false) {
+        val intent = Intent(context, StreamService::class.java).setAction(ACTION_START)
+            .putExtra(EXTRA_FROM_BOOT, fromBoot).putExtra(EXTRA_AFTER_UPDATE, afterUpdate)
         ContextCompat.startForegroundService(context, intent)
     }
 

@@ -22,6 +22,9 @@ import com.slp.camcast.server.CamServer
 import com.slp.camcast.server.Credentials
 import com.slp.camcast.settings.SettingsStore
 import com.slp.camcast.settings.SettingsValidator
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
@@ -47,7 +50,8 @@ class StreamService : LifecycleService() {
     private var generation = 0 // bumped on every camera (re)start, so errors from a replaced session are ignored
     private var attempt = 0 // consecutive camera restarts; a delivered frame resets it
     private var recovering = false
-    private var fromBoot = false
+    private var fromBoot = false // started without the user (boot or app update): failures go to a notification
+    private var afterUpdate = false
     private var cameraStartedMillis = 0L
 
     override fun onCreate() {
@@ -58,9 +62,13 @@ class StreamService : LifecycleService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         if (intent?.action == StreamController.ACTION_STOP) {
+            rememberWanted(false) // only the user stops it; a crash, kill or update leaves it wanted
             finish(null)
         } else {
-            if (!active) fromBoot = intent?.getBooleanExtra(StreamController.EXTRA_FROM_BOOT, false) == true
+            if (!active) {
+                afterUpdate = intent?.getBooleanExtra(StreamController.EXTRA_AFTER_UPDATE, false) == true
+                fromBoot = afterUpdate || intent?.getBooleanExtra(StreamController.EXTRA_FROM_BOOT, false) == true
+            }
             begin()
         }
         return START_NOT_STICKY
@@ -79,7 +87,13 @@ class StreamService : LifecycleService() {
             )
         } catch (e: SecurityException) {
             // At boot this is the expected refusal on newer Android: say so instead of quoting the platform.
-            finish(if (fromBoot) getString(R.string.boot_blocked) else getString(R.string.camera_error, e.message ?: e.javaClass.simpleName))
+            finish(
+                when {
+                    afterUpdate -> getString(R.string.update_blocked)
+                    fromBoot -> getString(R.string.boot_blocked)
+                    else -> getString(R.string.camera_error, e.message ?: e.javaClass.simpleName)
+                },
+            )
             return
         }
         StreamController.publish(StreamState.Starting)
@@ -102,11 +116,18 @@ class StreamService : LifecycleService() {
             server = camServer
             host = LocalAddress.find() ?: "?"
             acquireLocks()
+            rememberWanted(true)
             streamConfig = settings.stream
             startCamera()
             lastTickMillis = System.currentTimeMillis()
             handler.post(ticker)
         }
+    }
+
+    // Outlives the service's own scope, so a Stop is saved even though the service is destroyed right after.
+    private fun rememberWanted(wanted: Boolean) {
+        val store = SettingsStore(applicationContext)
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch { store.setStreamWanted(wanted) }
     }
 
     private fun startCamera() {
@@ -226,6 +247,7 @@ class StreamService : LifecycleService() {
         // Started at boot, nobody is looking at the app: say why it is not streaming.
         if (error != null && fromBoot) notification.postProblem(error)
         fromBoot = false
+        afterUpdate = false
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }

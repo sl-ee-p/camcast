@@ -33,6 +33,18 @@ class SettingsStoreTest {
     }
 
     @Test
+    fun streamWantedDefaultsOffAndIsKeptApartFromTheSettings() = runBlocking {
+        assertEquals(false, store.isStreamWanted())
+        store.setStreamWanted(true)
+        val settings = store.load()
+        store.save(settings.copy(port = 9000)) // saving the form must not clear it
+        assertEquals(true, store.isStreamWanted())
+        store.setStreamWanted(false)
+        assertEquals(false, store.isStreamWanted())
+        assertEquals(9000, store.load().port)
+    }
+
+    @Test
     fun freshInstallGetsDefaultsAndARandomPasswordThatSticks() = runBlocking {
         val first = store.load()
         assertEquals(StreamConfig(), first.stream)

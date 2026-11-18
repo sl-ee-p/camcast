@@ -61,6 +61,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var password: TextInputEditText
     private lateinit var newPassword: MaterialButton
     private lateinit var startOnBoot: MaterialSwitch
+    private lateinit var overlayHint: TextView
+    private lateinit var overlayButton: MaterialButton
     private lateinit var batteryHint: TextView
     private lateinit var batteryButton: MaterialButton
 
@@ -97,6 +99,8 @@ class MainActivity : AppCompatActivity() {
         newPassword.setOnClickListener { password.setText(PasswordGenerator.generate()) }
         startStop.setOnClickListener { onStartStop() }
         batteryButton.setOnClickListener { requestUnrestrictedBattery() }
+        overlayButton.setOnClickListener { requestOverlay() }
+        startOnBoot.setOnCheckedChangeListener { _, _ -> showOverlayPrompt() }
 
         lifecycleScope.launch {
             show(store.load())
@@ -113,6 +117,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         showBatteryPrompt()
+        showOverlayPrompt()
     }
 
     override fun onStop() {
@@ -143,6 +148,8 @@ class MainActivity : AppCompatActivity() {
         password = findViewById(R.id.password)
         newPassword = findViewById(R.id.newPassword)
         startOnBoot = findViewById(R.id.startOnBoot)
+        overlayHint = findViewById(R.id.overlayHint)
+        overlayButton = findViewById(R.id.overlayButton)
         batteryHint = findViewById(R.id.batteryHint)
         batteryButton = findViewById(R.id.batteryButton)
     }
@@ -250,6 +257,21 @@ class MainActivity : AppCompatActivity() {
         val restricted = !getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
         batteryHint.visibility = if (restricted) View.VISIBLE else View.GONE
         batteryButton.visibility = if (restricted) View.VISIBLE else View.GONE
+    }
+
+    /** Only matters for starting by itself, so it is offered once "Start when the phone boots" is on. */
+    private fun showOverlayPrompt() {
+        val needed = startOnBoot.isChecked && !Settings.canDrawOverlays(this)
+        overlayHint.visibility = if (needed) View.VISIBLE else View.GONE
+        overlayButton.visibility = if (needed) View.VISIBLE else View.GONE
+    }
+
+    private fun requestOverlay() {
+        try {
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:$packageName".toUri()))
+        } catch (e: android.content.ActivityNotFoundException) {
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
+        }
     }
 
     // The permission is declared for this one request; CamCast is installed by hand, not through Google Play.

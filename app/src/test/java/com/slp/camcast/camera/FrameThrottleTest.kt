@@ -31,6 +31,30 @@ class FrameThrottleTest {
     }
 
     @Test
+    fun dimLightCameraStillReachesTheCap() {
+        // 16.7 fps (60 ms apart), as the Redmi delivers indoors: a minimum-gap throttle gave 8.3 fps here.
+        val t = FrameThrottle(10)
+        val accepted = (0 until 1000).count { t.accept(it * 60 * ms) } // 60 s of camera frames
+        assertTrue("accepted $accepted", accepted in 595..605)
+    }
+
+    @Test
+    fun acceptedFramesAreNeverCloserThanOneCameraFrame() {
+        val t = FrameThrottle(10)
+        val stamps = (0 until 200).map { it * 60 * ms }.filter { t.accept(it) }
+        assertTrue(stamps.zipWithNext().all { (a, b) -> b - a >= 60 * ms })
+    }
+
+    @Test
+    fun speedingUpAfterASlowSpellDoesNotBurst() {
+        val t = FrameThrottle(10)
+        (0 until 10).forEach { assertTrue(t.accept(it * 500 * ms)) } // 2 fps camera, slower than the cap
+        val start = 5_000 * ms
+        val accepted = (0 until 30).count { t.accept(start + it * 33_333_333L) } // then 30 fps for 1 s
+        assertEquals(10, accepted)
+    }
+
+    @Test
     fun jitterJustUnderTheIntervalStillPasses() {
         val t = FrameThrottle(10)
         assertTrue(t.accept(0))

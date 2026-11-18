@@ -47,8 +47,8 @@ class CamServerTest {
         assertEquals("uncaught exceptions on server threads", emptyList<Throwable>(), uncaught.toList())
     }
 
-    private fun start(maxClients: Int = 6, snapshotWait: Long = 200): Int {
-        val s = CamServer(0, frames, creds, maxClients, snapshotWait, requestTimeoutMillis = 2_000)
+    private fun start(maxClients: Int = 6, snapshotWait: Long = 200, writeStall: Long = 20_000): Int {
+        val s = CamServer(0, frames, creds, maxClients, snapshotWait, requestTimeoutMillis = 2_000, writeStallMillis = writeStall)
         server = s
         return s.start()
     }
@@ -139,10 +139,14 @@ class CamServerTest {
         return s.getInputStream()
     }
 
+    // Evaluates [cond] once per round and never again after it held: a condition that makes a request would
+    // otherwise race the server releasing the slot of the request that just succeeded.
     private fun waitUntil(timeoutMs: Long = 3_000, cond: () -> Boolean) {
         val end = System.currentTimeMillis() + timeoutMs
-        while (!cond() && System.currentTimeMillis() < end) Thread.sleep(10)
-        assertTrue(cond())
+        while (!cond()) {
+            assertTrue("condition not met in $timeoutMs ms", System.currentTimeMillis() < end)
+            Thread.sleep(10)
+        }
     }
 
     @Test
@@ -285,6 +289,32 @@ class CamServerTest {
         val ended = CountDownLatch(1)
         Thread { runCatching { input.readBytes() }; ended.countDown() }.start()
         assertTrue(ended.await(4, TimeUnit.SECONDS))
+    }
+
+    @Test
+    fun aViewerThatStopsReadingIsDroppedAndItsSlotFreed() {
+        val port = start(maxClients = 1, writeStall = 300)
+        val stuck = Socket()
+        stuck.receiveBufferSize = 4096
+        stuck.connect(java.net.InetSocketAddress(InetAddress.getLoopbackAddress(), port))
+        sockets += stuck
+        stuck.getOutputStream().write("GET /video HTTP/1.1\r\n$auth\r\n\r\n".toByteArray())
+        waitUntil { server!!.streamers == 1 }
+        // Big frames fill both socket buffers, so the server's write blocks like it would for a vanished client.
+        val big = ByteArray(1_000_000)
+        val publisher = Thread {
+            while (!Thread.currentThread().isInterrupted) {
+                frames.publish(big, 1, 1, 0)
+                try { Thread.sleep(20) } catch (e: InterruptedException) { break }
+            }
+        }.apply { start() }
+        try {
+            waitUntil { server!!.streamers == 0 }
+            waitUntil { get(port, "/snapshot.jpg").status == 200 } // the only slot is free again
+        } finally {
+            publisher.interrupt()
+            publisher.join()
+        }
     }
 
     @Test

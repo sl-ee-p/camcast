@@ -6,8 +6,11 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -22,6 +25,11 @@ class CamServer(
     /** How long `/snapshot.jpg` waits for a first frame before answering 503. */
     private val snapshotWaitMillis: Long = 3_000,
     private val requestTimeoutMillis: Int = 10_000,
+    /**
+     * A `/video` client whose frame write blocks this long is dropped. Socket writes have no timeout, so a viewer
+     * that vanished without closing (Wi-Fi gone, power cut) would otherwise hold its slot until TCP gives up (~15 min).
+     */
+    private val writeStallMillis: Long = 20_000,
 ) {
     @Volatile private var running = false
     private var serverSocket: ServerSocket? = null
@@ -29,6 +37,8 @@ class CamServer(
     private val clients = Collections.synchronizedSet(HashSet<Socket>())
     private val activeClients = AtomicInteger()
     private val streamingClients = AtomicInteger()
+    private val writingSince = ConcurrentHashMap<Socket, Long>()
+    private var reaper: ScheduledExecutorService? = null
 
     /** Clients currently watching `/video`. */
     val streamers: Int get() = streamingClients.get()
@@ -43,6 +53,11 @@ class CamServer(
         serverSocket = socket
         executor = Executors.newCachedThreadPool()
         running = true
+        reaper = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "camcast-reaper").apply { isDaemon = true } }
+            .apply {
+                val period = (writeStallMillis / 4).coerceAtLeast(10)
+                scheduleWithFixedDelay(::dropStalledClients, period, period, TimeUnit.MILLISECONDS)
+            }
         Thread(::acceptLoop, "camcast-accept").apply { isDaemon = true }.start()
         return socket.localPort
     }
@@ -54,6 +69,13 @@ class CamServer(
         synchronized(clients) { clients.toList() }.forEach { runCatching { it.close() } }
         executor?.shutdownNow()
         executor = null
+        reaper?.shutdownNow()
+        reaper = null
+    }
+
+    private fun dropStalledClients() {
+        val limit = System.nanoTime() - writeStallMillis * 1_000_000L
+        writingSince.forEach { (socket, since) -> if (since < limit) runCatching { socket.close() } }
     }
 
     private fun acceptLoop() {
@@ -155,9 +177,12 @@ class CamServer(
             while (running && !frames.isClosed && !Thread.currentThread().isInterrupted) {
                 val frame = frames.awaitNewer(last, STREAM_POLL_MILLIS) ?: continue
                 last = frame.sequence
+                writingSince[client] = System.nanoTime()
                 MjpegWriter.writeFrame(out, frame.jpeg, frame.timestampMillis)
+                writingSince -= client
             }
         } finally {
+            writingSince -= client
             streamingClients.decrementAndGet()
         }
     }

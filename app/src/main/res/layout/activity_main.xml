@@ -229,6 +229,24 @@
             android:text="@string/field_start_on_boot" />
 
         <TextView
+            android:id="@+id/overlayHint"
+            style="@style/TextAppearance.Material3.BodyMedium"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/overlay_hint"
+            android:visibility="gone" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/overlayButton"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/action_overlay"
+            android:visibility="gone" />
+
+        <TextView
             android:id="@+id/batteryHint"
             style="@style/TextAppearance.Material3.BodyMedium"
             android:layout_width="match_parent"

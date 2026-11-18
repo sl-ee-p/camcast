@@ -71,13 +71,14 @@ const layout = (page) => page.evaluate(() => {
     .filter((el) => { const r = el.getBoundingClientRect(); return r.left < -1 || r.right > vw + 1; })
     .map((el) => el.id || el.className);
   const stage = document.getElementById("stage").getBoundingClientRect();
-  const img = document.getElementById("stream").getBoundingClientRect();
+  const el = document.getElementById("stream");
+  const img = el.getBoundingClientRect();
   const rotated = ["90", "270"].includes(document.getElementById("stage").dataset.rot);
   const ratio = rotated ? img.height / img.width : img.width / img.height;
   const inside = img.left >= stage.left - 1 && img.right <= stage.right + 1 && img.top >= stage.top - 1
     && img.bottom <= stage.bottom + 1;
   return { overflowX: document.scrollingElement.scrollWidth > vw + 1, outside, stageHeight: Math.round(stage.height),
-    stageShare: Math.round((100 * stage.height) / innerHeight), aspectOk: Math.abs(ratio - 720 / 1280) < 0.02 && inside,
+    stageShare: Math.round((100 * stage.height) / innerHeight), aspectOk: Math.abs(ratio - el.naturalWidth / el.naturalHeight) < 0.02 && inside,
     imgSize: [Math.round(img.width), Math.round(img.height)] };
 });
 // Two screenshots of the image a moment apart differ only if frames keep arriving.
@@ -100,8 +101,9 @@ const status = (page) => page.evaluate(() => fetch("/api/status").then((r) => r.
     const fps = await en.textContent("#fps");
     check("EN live label, fps, viewers", /^\d+\.\d fps$/.test(fps) && (await en.textContent("#viewers")) === "1/4 viewers",
       `${await label(en)} | ${fps} | ${await en.textContent("#viewers")}`);
-    check("EN image is 720x1280 and moving", (await en.evaluate(() => document.getElementById("stream").naturalWidth)) === 720
-      && await isMoving(en));
+    // Any size the phone sends (the fake sends 720x1280); the layout checks compare against the stream's own aspect.
+    const natural = await en.evaluate(() => { const s = document.getElementById("stream"); return [s.naturalWidth, s.naturalHeight]; });
+    check("EN image has a size and is moving", natural[0] > 0 && natural[1] > 0 && await isMoving(en), natural.join("x"));
     const enLayout = await layout(en);
     check("EN phone layout fits", !enLayout.overflowX && !enLayout.outside.length && enLayout.aspectOk,
       JSON.stringify(enLayout));

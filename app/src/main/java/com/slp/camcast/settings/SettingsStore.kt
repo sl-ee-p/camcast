@@ -45,6 +45,13 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         }
     }
 
+    /** Whether the stream should be running: set when it starts, cleared only when the user stops it. */
+    suspend fun isStreamWanted(): Boolean = dataStore.data.first()[STREAM_WANTED] ?: false
+
+    suspend fun setStreamWanted(wanted: Boolean) {
+        dataStore.edit { it[STREAM_WANTED] = wanted }
+    }
+
     private fun fromPreferences(p: Preferences): AppSettings {
         val defaults = StreamConfig()
         val stream = StreamConfig(
@@ -75,5 +82,6 @@ class SettingsStore(private val dataStore: DataStore<Preferences>) {
         val USERNAME = stringPreferencesKey("username")
         val PASSWORD = stringPreferencesKey("password")
         val START_ON_BOOT = booleanPreferencesKey("start_on_boot")
+        val STREAM_WANTED = booleanPreferencesKey("stream_wanted")
     }
 }
