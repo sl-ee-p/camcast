@@ -9,8 +9,11 @@ import base64
 import contextlib
 import glob
 import hmac
+import json
 import os
+import re
 import sys
+import time
 
 BOUNDARY = b"camcastframe"
 
@@ -38,6 +41,9 @@ class FakeCamCast:
         self.video_peak = 0
         self.clients = 0
         self.requests: list[tuple[str, str]] = []
+        # Motion clips: id -> (thumbnail, list of frames). Replayed 20 ms apart; downloads are the MJPEG framing.
+        self.clips: dict[str, tuple[bytes, list[bytes]]] = {}
+        self.events_extra: dict = {}  # merged into /events.json (e.g. motion/recording flags)
         self._server: asyncio.Server | None = None
         self.port = 0
 
@@ -90,6 +96,34 @@ class FakeCamCast:
                              b"Connection: close\r\n\r\n" % len(jpeg))
                 if method != "HEAD":
                     writer.write(jpeg)
+            elif path == "/events.json":
+                clips = [{"id": cid, "start": 1, "motion": 2, "end": 3, "frames": len(frames),
+                          "bytes": len(self._clip_bytes(frames)), "width": 640, "height": 480}
+                         for cid, (_, frames) in self.clips.items()]
+                body = json.dumps({"detection": True, "now": int(time.time() * 1000), "motion": False,
+                                   "recording": False, "recordingSince": None, "lastMotion": None,
+                                   "clips": clips, **self.events_extra}).encode()
+                writer.write(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\n"
+                             b"Connection: close\r\n\r\n" % len(body))
+                if method != "HEAD":
+                    writer.write(body)
+            elif (m := re.fullmatch(r"/clips/([0-9-]+)(\.jpg|\.mjpeg|/play)", path)) and m.group(1) in self.clips:
+                thumb, frames = self.clips[m.group(1)]
+                if m.group(2) == ".jpg":
+                    writer.write(b"HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nContent-Length: %d\r\n"
+                                 b"Connection: close\r\n\r\n" % len(thumb) + thumb)
+                elif m.group(2) == ".mjpeg":
+                    body = self._clip_bytes(frames)
+                    writer.write(b"HTTP/1.1 200 OK\r\nContent-Type: video/x-motion-jpeg\r\nContent-Length: %d\r\n"
+                                 b'Content-Disposition: attachment; filename="x.mjpeg"\r\n'
+                                 b"Connection: close\r\n\r\n" % len(body) + body)
+                else:
+                    writer.write(b"HTTP/1.1 200 OK\r\nContent-Type: multipart/x-mixed-replace; boundary=camcastframe"
+                                 b"\r\nConnection: close\r\n\r\n")
+                    for i, jpeg in enumerate(frames):
+                        writer.write(self._part(jpeg, i))
+                        await writer.drain()
+                        await asyncio.sleep(0.02)
             elif path == "/":
                 body = b"<h1>CamCast</h1>"
                 writer.write(b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %d\r\n"
@@ -104,6 +138,14 @@ class FakeCamCast:
         finally:
             self.clients -= 1
             writer.close()
+
+    @staticmethod
+    def _part(jpeg: bytes, timestamp: int) -> bytes:
+        return (b"--%s\r\nContent-Type: image/jpeg\r\nContent-Length: %d\r\nX-Timestamp: %d\r\n\r\n"
+                % (BOUNDARY, len(jpeg), timestamp)) + jpeg + b"\r\n"
+
+    def _clip_bytes(self, frames: list[bytes]) -> bytes:
+        return b"".join(self._part(jpeg, i) for i, jpeg in enumerate(frames))
 
     async def _video(self, writer):
         self.video_total += 1

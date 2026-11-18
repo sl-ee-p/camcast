@@ -6,7 +6,7 @@ import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB = os.path.join(ROOT, "web")
-REASONS = {"unreachable", "unauthorized", "busy", "stalled", "closed", "bad_response", "error"}
+REASONS = {"unreachable", "unauthorized", "busy", "stalled", "closed", "bad_response", "error", "not_found"}
 STATES = {"online", "connecting", "offline", "standby", "unknown", "noViewer"}
 
 
@@ -31,7 +31,7 @@ class I18nTest(unittest.TestCase):
             self.assertTrue(self.it[key].strip(), key)
 
     def test_page_keys_exist(self):
-        used = set(re.findall(r'data-i18n(?:-alt)?="([^"]+)"', read("web", "index.html")))
+        used = set(re.findall(r'data-i18n(?:-alt|-label)?="([^"]+)"', read("web", "index.html")))
         used |= set(re.findall(r'\bt\("([^"]+)"', read("web", "static", "app.js")))
         static = {key for key in used if not key.endswith(".")}  # "state." + x is covered below
         self.assertTrue(static)
@@ -44,7 +44,7 @@ class I18nTest(unittest.TestCase):
     def test_server_reasons_are_known(self):
         source = read("camcast_viewer", "upstream.py") + read("camcast_viewer", "hub.py")
         codes = set(re.findall(r'UpstreamError\("(\w+)"\)', source)) | set(re.findall(r'"(\w+)"}\.get', source))
-        codes |= set(re.findall(r'{401: "(\w+)", 503: "(\w+)"}', source)[0])
+        codes |= set(re.findall(r'\b\d{3}: "(\w+)"', source))
         codes |= set(re.findall(r'^\s*self\._reason = "(\w+)"', source, re.MULTILINE))
         self.assertTrue(codes)
         self.assertEqual(codes - REASONS, set())

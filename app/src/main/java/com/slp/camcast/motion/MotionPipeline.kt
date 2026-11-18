@@ -51,8 +51,9 @@ class MotionPipeline(dir: File, sensitivity: MotionSensitivity) : ClipSource {
         val last = lastMotionMillis
         val moving = last != null && nowMillis - last < MOVING_MILLIS
         val clips = store.list().take(MAX_LISTED).joinToString(",") { it.toJson() }
+        val since = recorder.recordingSinceMillis
         return "{\"detection\":true,\"now\":$nowMillis,\"motion\":$moving,\"recording\":$isRecording," +
-            "\"lastMotion\":${last ?: "null"},\"clips\":[$clips]}"
+            "\"recordingSince\":${since ?: "null"},\"lastMotion\":${last ?: "null"},\"clips\":[$clips]}"
     }
 
     override fun clipFile(id: String): File? = store.find(id)?.let { store.clipFile(it.id) }

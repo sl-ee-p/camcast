@@ -13,7 +13,9 @@ python3 -m tests.fake_camcast --port 8080 --password-file PWFILE   # stand-in fo
 ```
 
 ## Routes
-`/` page, `/video` MJPEG, `/snapshot.jpg` (download), `/api/status` JSON, `/healthz`.
+`/` page, `/video` MJPEG, `/snapshot.jpg` (download), `/api/status` JSON, `/healthz`,
+`/api/events` (movement state + clips from the phone, cached 2 s), `/clips/<id>.jpg` (thumbnail), `/clips/<id>.mjpeg`
+(download), `/clips/<id>/play` (replay at the original pace). At most 2 clip streams at once.
 
 ## Checks
 ```sh
@@ -25,6 +27,7 @@ export NODE_PATH=~/projects/homelab-twin/node_modules
 node tests/browser/make-assets.cjs --frames out/frames   # PNG icons + 720x1280 test JPEGs
 tests/browser/servers.sh start                          # fake phone :18080 + viewer :18091 on loopback
 node tests/browser/check.cjs --local                    # screenshots in out/shots
+node tests/browser/events.cjs --base URL                # movement banner/clips; the phone behind URL needs a clip
 tests/browser/servers.sh stop
 ```
 

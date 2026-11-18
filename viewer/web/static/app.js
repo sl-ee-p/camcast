@@ -1,4 +1,5 @@
-// CamCast viewer page: live MJPEG in an <img>, status polling, rotate, fullscreen, snapshot, EN/IT.
+// CamCast viewer page: live MJPEG in an <img>, status polling, rotate, fullscreen, snapshot, EN/IT,
+// movement alerts and the motion clips (list, replay, download).
 (() => {
   "use strict";
 
@@ -8,6 +9,8 @@
   const RETRY_MAX_MS = 15000;
   const NO_FRAME_RESTART_MS = 8000;
   const IDLE_HIDE_MS = 3000;
+  const EVENTS_POLL_MS = 3000;
+  const ALERT_MS = 30000;
 
   const $ = (id) => document.getElementById(id);
   const ui = {
@@ -15,6 +18,12 @@
     state: $("state"), stateLabel: $("state-label"), fps: $("fps"), viewers: $("viewers"),
     rotate: $("rotate"), rotDeg: $("rot-deg"), fullscreen: $("fullscreen"), fsLabel: $("fs-label"),
     snapshot: $("snapshot"), lang: $("lang"), langLabel: $("lang-label"), toast: $("toast"),
+    motion: $("motion"), events: $("events"), eventsBadge: $("events-badge"),
+    alert: $("alert"), alertText: $("alert-text"), alertShow: $("alert-show"), alertClose: $("alert-close"),
+    panel: $("events-panel"), panelClose: $("events-close"), note: $("events-note"), list: $("clip-list"),
+    player: $("player"), playerTitle: $("player-title"), playerClose: $("player-close"), playerStage: $("player-stage"),
+    clipImg: $("clip-img"), playerOverlay: $("player-overlay"), playerOverlayText: $("player-overlay-text"),
+    replay: $("replay"), download: $("download"),
   };
 
   const store = {
@@ -36,6 +45,12 @@
   let pollTimer = 0;
   let idleTimer = 0;
   let toastTimer = 0;
+  let events = null; // last /api/events body
+  let eventsTimer = 0;
+  let alertTimer = 0;
+  let alertedMotion = null; // newest movement already announced in this page (null until the first poll)
+  let seenMotion = Number(store.get("seenMotion")) || 0; // newest movement the user has looked at (badge)
+  let playing = null; // the clip open in the player
   let rotation = [0, 90, 180, 270].includes(Number(store.get("rotation"))) ? Number(store.get("rotation")) : 0;
 
   // --- strings -----------------------------------------------------------------
@@ -68,6 +83,7 @@
     document.title = t("title");
     for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
     for (const el of document.querySelectorAll("[data-i18n-alt]")) el.alt = t(el.dataset.i18nAlt);
+    for (const el of document.querySelectorAll("[data-i18n-label]")) el.setAttribute("aria-label", t(el.dataset.i18nLabel));
     const other = LANGS.find((code) => code !== lang);
     ui.langLabel.textContent = t("switchLang");
     ui.lang.lang = other;
@@ -159,6 +175,7 @@
     ui.stage.dataset.rot = String(rotation);
     ui.rotDeg.textContent = t("degrees", { deg: rotation });
     ui.fsLabel.textContent = t(ui.app.classList.contains("fs") ? "exitFullscreen" : "fullscreen");
+    renderEvents();
   }
 
   new ResizeObserver(([entry]) => {
@@ -166,6 +183,185 @@
     ui.stage.style.setProperty("--w", width + "px");
     ui.stage.style.setProperty("--h", height + "px");
   }).observe(ui.stage);
+
+  // --- movement events and clips ---------------------------------------------------
+
+  function formatTime(millis) {
+    const date = new Date(millis);
+    const today = new Date().toDateString() === date.toDateString();
+    return new Intl.DateTimeFormat(lang, today ? { timeStyle: "medium" } : { dateStyle: "medium", timeStyle: "medium" })
+      .format(date);
+  }
+
+  function formatDuration(millis) {
+    const seconds = Math.max(0, Math.round(millis / 1000));
+    return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
+  }
+
+  /** Every movement the phone knows about, newest first: the clip being recorded, then the saved clips. */
+  function movements() {
+    if (!events?.available) return [];
+    const times = events.clips.map((clip) => clip.motion);
+    if (events.recordingSince) times.push(events.recordingSince);
+    return [...new Set(times)].sort((a, b) => b - a);
+  }
+
+  async function pollEvents() {
+    clearTimeout(eventsTimer);
+    try {
+      const response = await fetch("/api/events", { cache: "no-store", signal: AbortSignal.timeout(6000) });
+      if (!response.ok) throw new Error("events " + response.status);
+      events = await response.json();
+    } catch {
+      events = { available: false, reason: "unreachable" };
+    }
+    const newest = movements()[0] ?? 0;
+    // The first answer only sets the baseline: what happened before the page opened shows as the badge, not a banner.
+    if (alertedMotion === null) alertedMotion = newest;
+    else if (newest > alertedMotion) {
+      alertedMotion = newest;
+      showAlert(newest);
+    }
+    renderEvents();
+    if (!document.hidden) eventsTimer = setTimeout(pollEvents, EVENTS_POLL_MS);
+  }
+
+  function showAlert(millis) {
+    ui.alert.dataset.time = String(millis);
+    ui.alert.hidden = false;
+    renderEvents();
+    clearTimeout(alertTimer);
+    alertTimer = setTimeout(() => { ui.alert.hidden = true; }, ALERT_MS);
+  }
+
+  function markSeen() {
+    seenMotion = Math.max(seenMotion, movements()[0] ?? 0);
+    store.set("seenMotion", String(seenMotion));
+  }
+
+  function renderEvents() {
+    if (!strings.title) return;
+    ui.motion.hidden = !(events?.available && (events.motion || events.recording));
+    const unseen = movements().filter((time) => time > seenMotion).length;
+    ui.eventsBadge.hidden = unseen === 0 || !ui.panel.hidden;
+    ui.eventsBadge.textContent = unseen > 99 ? "99+" : String(unseen);
+    ui.events.setAttribute("aria-label", t("events") + (unseen ? " (" + unseen + ")" : ""));
+    if (!ui.alert.hidden) ui.alertText.textContent = t("motionAt", { time: formatTime(Number(ui.alert.dataset.time)) });
+    if (!ui.panel.hidden) renderList();
+    if (playing) ui.playerTitle.textContent = t("clipTitle", { time: formatTime(playing.motion) });
+  }
+
+  function renderList() {
+    let note = "";
+    if (!events) note = t("connecting");
+    else if (!events.available) note = t("eventsUnavailable");
+    else if (!events.detection) note = t("detectionOff");
+    else if (!events.clips.length && !events.recording) note = t("noClips");
+    ui.note.textContent = note;
+    ui.note.hidden = !note;
+    const items = [];
+    if (events?.available && events.recording && events.recordingSince) {
+      const li = document.createElement("li");
+      li.className = "recording";
+      li.textContent = t("recordingNow", { time: formatTime(events.recordingSince) });
+      items.push(li);
+    }
+    const size = new Intl.NumberFormat(lang, { maximumFractionDigits: 1 });
+    for (const clip of events?.available ? events.clips : []) {
+      const li = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "clip" + (clip.motion > seenMotion ? " new" : "");
+      const img = document.createElement("img");
+      img.loading = "lazy";
+      img.src = "/clips/" + clip.id + ".jpg";
+      img.alt = t("thumbAlt", { time: formatTime(clip.motion) });
+      const when = document.createElement("span");
+      when.className = "when";
+      when.textContent = formatTime(clip.motion);
+      const info = document.createElement("span");
+      info.className = "info";
+      info.textContent = t("clipMeta", {
+        duration: formatDuration(clip.end - clip.start), size: size.format(clip.bytes / 1e6),
+      });
+      button.append(img, when, info);
+      button.addEventListener("click", () => openPlayer(clip));
+      li.append(button);
+      items.push(li);
+    }
+    // Rebuild only when the content changed, so thumbnails do not reload every poll.
+    const key = items.map((li) => li.textContent + li.className + (li.firstChild?.className || "")).join("|");
+    if (ui.list.dataset.key !== key) {
+      ui.list.dataset.key = key;
+      ui.list.replaceChildren(...items);
+    }
+  }
+
+  function openPanel() {
+    ui.alert.hidden = true;
+    ui.panel.hidden = false;
+    renderEvents();
+    markSeen();
+    ui.panelClose.focus();
+  }
+
+  function closePanel() {
+    ui.panel.hidden = true;
+    markSeen();
+    renderEvents();
+    ui.events.focus();
+  }
+
+  function openPlayer(clip) {
+    playing = clip;
+    ui.player.hidden = false;
+    ui.playerStage.dataset.rot = String(rotation); // same turn as the live view
+    ui.download.href = "/clips/" + clip.id + ".mjpeg";
+    ui.download.setAttribute("download", "camcast-" + clip.id + ".mjpeg");
+    startClip();
+    renderEvents();
+    ui.playerClose.focus();
+  }
+
+  function startClip() {
+    ui.playerOverlay.hidden = true;
+    ui.clipImg.src = "/clips/" + playing.id + "/play?t=" + Date.now();
+  }
+
+  function closePlayer() {
+    playing = null;
+    ui.clipImg.removeAttribute("src"); // ends the replay and frees its slot on the phone
+    ui.player.hidden = true;
+    if (!ui.panel.hidden) ui.panelClose.focus();
+  }
+
+  ui.clipImg.addEventListener("error", async () => {
+    if (!playing || !ui.clipImg.getAttribute("src")) return;
+    let busy = false;
+    try {
+      busy = (await fetch("/clips/" + playing.id + "/play", { method: "HEAD", cache: "no-store" })).status === 503;
+    } catch { /* viewer down: same message as the camera */ }
+    ui.playerOverlayText.textContent = t(busy ? "clipBusy" : "clipFailed");
+    ui.playerOverlay.hidden = false;
+  });
+
+  ui.events.addEventListener("click", openPanel);
+  ui.alertShow.addEventListener("click", openPanel);
+  ui.alertClose.addEventListener("click", () => { ui.alert.hidden = true; });
+  ui.panelClose.addEventListener("click", closePanel);
+  ui.playerClose.addEventListener("click", closePlayer);
+  ui.replay.addEventListener("click", () => { if (playing) startClip(); });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (playing) closePlayer();
+    else if (!ui.panel.hidden) closePanel();
+  });
+
+  new ResizeObserver(([entry]) => {
+    const { width, height } = entry.contentRect;
+    ui.playerStage.style.setProperty("--w", width + "px");
+    ui.playerStage.style.setProperty("--h", height + "px");
+  }).observe(ui.playerStage);
 
   // --- controls ------------------------------------------------------------------
 
@@ -250,15 +446,18 @@
     if (document.hidden) {
       stopStream();
       clearTimeout(pollTimer);
+      clearTimeout(eventsTimer);
     } else {
       retryDelay = RETRY_MIN_MS;
       startStream();
       poll();
+      pollEvents();
     }
   });
 
   setLang(pickLang()).catch(() => {}).finally(() => {
     if (!document.hidden) startStream();
     poll();
+    pollEvents();
   });
 })();

@@ -4,12 +4,14 @@ import json
 import logging
 import os
 import posixpath
+import re
 import time
 from contextlib import suppress
 from http import HTTPStatus
 
 from . import mjpeg, upstream
 from .config import is_allowed
+from .events import CLIP_ID, Events
 from .hub import Hub
 
 log = logging.getLogger("camcast_viewer")
@@ -29,6 +31,9 @@ COMMON_HEADERS = (
     "Referrer-Policy: no-referrer\r\n"
     "X-Frame-Options: DENY\r\n"
 )
+CLIP_PATH = re.compile(r"/clips/(" + CLIP_ID.pattern + r")(\.jpg|\.mjpeg|/play)")
+MAX_THUMB_BYTES = 2 * 1024 * 1024
+RELAY_CHUNK = 64 * 1024
 PAGE_CSP = ("default-src 'self'; img-src 'self' blob:; style-src 'self'; script-src 'self'; "
             "connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
 
@@ -86,8 +91,13 @@ async def read_request(reader: asyncio.StreamReader) -> tuple[str, str, dict[str
 
 class ViewerServer:
     def __init__(self, hub: Hub, *, allow, web_dir: str | None = None, version: str = "dev",
-                 request_timeout=10.0, write_timeout=10.0):
+                 request_timeout=10.0, write_timeout=10.0, events: Events | None = None, max_clip_streams=2,
+                 clip_stall_timeout=15.0):
         self.hub = hub
+        self.events = events or Events(hub.up)
+        # Each clip download or replay is one more connection to the phone (it allows 6; live view uses 1).
+        self.clip_slots = asyncio.Semaphore(max_clip_streams)
+        self.clip_stall_timeout = clip_stall_timeout
         self.allow = allow
         self.web_dir = web_dir
         self.version = version
@@ -131,6 +141,11 @@ class ViewerServer:
         elif path == "/api/status":
             body = json.dumps({**self.hub.status(), "version": self.version}).encode()
             await self._send(writer, 200, body, "application/json", head=head)
+        elif path == "/api/events":
+            body = json.dumps(await self.events.get()).encode()
+            await self._send(writer, 200, body, "application/json", head=head)
+        elif match := CLIP_PATH.fullmatch(path):
+            await self._clip(reader, writer, match.group(1), match.group(2), head)
         elif path == "/healthz":
             await self._text(writer, 200, "ok", head=head)
         else:
@@ -170,6 +185,76 @@ class ViewerServer:
         name = time.strftime("camcast-%Y%m%d-%H%M%S.jpg", time.localtime(frame.wall))
         await self._send(writer, 200, frame.jpeg, "image/jpeg", head=head,
                          extra=f'Content-Disposition: attachment; filename="{name}"\r\n')
+
+    async def _clip(self, reader, writer, clip_id: str, kind: str, head: bool) -> None:
+        phone_path = f"/clips/{clip_id}{kind}"
+        if kind == ".jpg":
+            try:
+                _, body = await upstream.fetch(self.hub.up, phone_path, self.hub.connect_timeout, MAX_THUMB_BYTES)
+            except upstream.UpstreamError as error:
+                await self._upstream_error(writer, error, head)
+                return
+            # Ids are never reused, so a thumbnail never changes.
+            await self._send(writer, 200, body, "image/jpeg", head=head, cache="private, max-age=86400, immutable")
+            return
+        if self.clip_slots.locked():
+            await self._text(writer, 503, "Too many clips playing", head=head, extra="Retry-After: 10\r\n")
+            return
+        async with self.clip_slots:
+            try:
+                up_reader, up_writer, headers = await upstream.open_stream(
+                    self.hub.up, phone_path, self.hub.connect_timeout)
+            except upstream.UpstreamError as error:
+                await self._upstream_error(writer, error, head)
+                return
+            try:
+                await self._relay(reader, writer, up_reader, headers, kind, clip_id, head)
+            finally:
+                await upstream.close(up_writer)
+
+    async def _relay(self, reader, writer, up_reader, headers, kind: str, clip_id: str, head: bool) -> None:
+        """Pass the phone's bytes through unchanged until it ends, stalls, or the browser leaves."""
+        if kind == ".mjpeg":
+            length = headers.get("content-length", "")
+            extra = (f"Content-Length: {int(length)}\r\n" if length.isdigit() else "") + \
+                f'Content-Disposition: attachment; filename="camcast-{clip_id}.mjpeg"\r\n'
+            content_type = "video/x-motion-jpeg"
+        else:
+            extra = ""
+            content_type = headers.get("content-type", "")
+            if not content_type.startswith("multipart/x-mixed-replace"):
+                await self._text(writer, 502, "Bad Gateway", head=head)
+                return
+        writer.write((f"HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\n{extra}Cache-Control: no-store\r\n"
+                      f"{COMMON_HEADERS}Connection: close\r\n\r\n").encode("latin-1"))
+        await asyncio.wait_for(writer.drain(), self.write_timeout)
+        if head:
+            return
+        eof = asyncio.ensure_future(reader.read(1))
+        try:
+            while True:
+                chunk = asyncio.ensure_future(up_reader.read(RELAY_CHUNK))
+                done, _ = await asyncio.wait({chunk, eof}, timeout=self.clip_stall_timeout,
+                                             return_when=asyncio.FIRST_COMPLETED)
+                if eof in done or chunk not in done:
+                    chunk.cancel()
+                    return
+                data = chunk.result()
+                if not data:
+                    return
+                writer.write(data)
+                await asyncio.wait_for(writer.drain(), self.write_timeout)
+        finally:
+            eof.cancel()
+            if eof.done() and not eof.cancelled():
+                eof.exception()
+
+    async def _upstream_error(self, writer, error: upstream.UpstreamError, head: bool) -> None:
+        if error.reason == "not_found":
+            await self._text(writer, 404, "Not Found", head=head)
+        else:
+            await self._text(writer, 503, f"Camera unavailable ({error.reason})", head=head,
+                             extra="Retry-After: 5\r\n")
 
     async def _video(self, reader, writer, head: bool) -> None:
         viewer = self.hub.join()

@@ -20,7 +20,12 @@ Verdict: fits.
 - [x] **V1** hub + proxy core, fake CamCast, unit/integration tests (0.1.0)
 - [x] **V2** page: live view, rotate, fullscreen, snapshot, status, EN/IT, manifest; Playwright checks (0.2.0)
 - [x] **V3** deploy: install.sh + hardened unit, installed on the Pi (:8091) and verified with the fake phone on dev (0.3.0)
-- [ ] **V4** live: real CamCast, curl + Playwright, Pi CPU/RAM with 3 viewers; then 1.0.0, Setup Record, memory
+- [x] **V4** live (2026-11-18): real phone credentials on the Pi, curl + Playwright 25/25 against the real stream
+  (the layout checks now use the stream's own aspect instead of the fake's 720x1280). Pi load with real frames not re-measured.
+- [x] **V5** movement events (0.4.0): `/api/events` (phone `/events.json`, cached 2 s, sanitised), `/clips/<id>.jpg|.mjpeg|/play`
+  relayed with the credentials added (max 2 clip streams); page: red "Movement" pill, banner "Movement detected at …"
+  for movements after the page opened, Events button with an unseen count (remembered per browser), clips list with
+  thumbnails, player (Replay, Download). EN/IT, 2x. `tests/browser/events.cjs` 29/29 against the emulator phone.
 
 ## Results
 **V3 load test on the Pi (2026-11-17, fake phone on dev, worst-case 249 KB frames at 10 fps ≈ 2.5 MB/s in):**

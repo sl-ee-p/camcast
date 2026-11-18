@@ -46,6 +46,10 @@ class ClipRecorder(
     @Volatile var isRecording = false
         private set
 
+    /** When the movement behind the clip being written was seen, or null when not recording. */
+    @Volatile var recordingSinceMillis: Long? = null
+        private set
+
     fun onFrame(frame: JpegFrame, motion: Boolean) {
         val now = frame.timestampMillis
         if (motion) lastMotionMillis = now
@@ -81,6 +85,7 @@ class ClipRecorder(
         val rec = Recording(id, start, trigger.timestampMillis, trigger.timestampMillis + postMillis)
         recording = rec
         isRecording = true
+        recordingSinceMillis = rec.motionMillis
         val thumb = trigger.jpeg
         writer.execute {
             runCatching {
@@ -109,6 +114,7 @@ class ClipRecorder(
         val rec = recording ?: return
         recording = null
         isRecording = false
+        recordingSinceMillis = null
         val info = ClipInfo(rec.id, rec.startMillis, rec.motionMillis, rec.lastFrameMillis, rec.frames, 0, rec.width, rec.height)
         writer.execute {
             runCatching {

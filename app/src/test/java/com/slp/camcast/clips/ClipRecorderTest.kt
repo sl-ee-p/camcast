@@ -70,6 +70,15 @@ class ClipRecorderTest {
     }
 
     @Test
+    fun recordingSinceIsTheMovementBehindTheCurrentClip() {
+        val r = ClipRecorder(store, direct)
+        feed(r, 0, 50_000) { it == 45_000L || it == 48_000L }
+        assertEquals(t0 + 45_000, r.recordingSinceMillis)
+        feed(r, 50_000, 90_000)
+        assertNull(r.recordingSinceMillis)
+    }
+
+    @Test
     fun moreMovementExtendsTheClip() {
         val r = ClipRecorder(store, direct)
         feed(r, 0, 150_000) { it == 40_000L || it == 65_000L }

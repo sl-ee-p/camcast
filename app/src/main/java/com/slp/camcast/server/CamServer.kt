@@ -152,8 +152,9 @@ class CamServer(
     }
 
     private fun events(out: java.io.OutputStream, sendBody: Boolean) {
-        val json = clips?.eventsJson(System.currentTimeMillis())
-            ?: "{\"detection\":false,\"now\":${System.currentTimeMillis()},\"motion\":false,\"recording\":false,\"lastMotion\":null,\"clips\":[]}"
+        val now = System.currentTimeMillis()
+        val json = clips?.eventsJson(now) ?: ("{\"detection\":false,\"now\":$now,\"motion\":false,\"recording\":false," +
+            "\"recordingSince\":null,\"lastMotion\":null,\"clips\":[]}")
         HttpResponse.write(out, 200, "OK", "application/json", json.toByteArray(), sendBody)
     }
 

@@ -38,7 +38,7 @@ async def _request(up: Upstream, path: str, method: str, timeout: float):
         raise
     if status != 200:
         writer.close()
-        raise UpstreamError({401: "unauthorized", 503: "busy"}.get(status, "bad_response"))
+        raise UpstreamError({401: "unauthorized", 404: "not_found", 503: "busy"}.get(status, "bad_response"))
     return reader, writer, headers
 
 
@@ -100,6 +100,33 @@ async def snapshot(up: Upstream, timeout: float) -> bytes:
             raise UpstreamError("unreachable") from None
     finally:
         await _close(writer)
+
+
+async def fetch(up: Upstream, path: str, timeout: float, max_bytes: int) -> tuple[dict[str, str], bytes]:
+    """GET a small resource (events JSON, a thumbnail) whole."""
+    reader, writer, headers = await _request(up, path, "GET", timeout)
+    try:
+        try:
+            length = int(headers.get("content-length", ""))
+        except ValueError:
+            raise UpstreamError("bad_response") from None
+        if not 0 <= length <= max_bytes:
+            raise UpstreamError("bad_response")
+        try:
+            return headers, await asyncio.wait_for(reader.readexactly(length), timeout)
+        except (OSError, TimeoutError, asyncio.IncompleteReadError):
+            raise UpstreamError("unreachable") from None
+    finally:
+        await _close(writer)
+
+
+async def open_stream(up: Upstream, path: str, timeout: float):
+    """GET a long response (clip download or replay): returns (reader, writer, headers); close with close()."""
+    return await _request(up, path, "GET", timeout)
+
+
+async def close(writer: asyncio.StreamWriter) -> None:
+    await _close(writer)
 
 
 async def probe(up: Upstream, timeout: float) -> None:
